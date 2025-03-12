@@ -2,6 +2,10 @@
 
 An MCP (Model Context Protocol) server implementation that integrates Claude with Salesforce, enabling natural language interactions with your Salesforce data and metadata. This server allows Claude to query, modify, and manage your Salesforce objects and records using everyday language.
 
+<a href="https://glama.ai/mcp/servers/kqeniawbr6">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/kqeniawbr6/badge" alt="Salesforce Server MCP server" />
+</a>
+
 ## Features
 
 * **Object and Field Management**: Create and modify custom objects and fields using natural language
