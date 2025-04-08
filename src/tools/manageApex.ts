@@ -74,6 +74,13 @@ export async function handleManageApex(conn: any, args: ManageApexArgs) {
           throw new Error('Body is required for update operation');
         }
         
+        const containerResult = await conn.tooling.sobject('MetadataContainer').create({
+          Name: `${args.className}_${Date.now()}`
+        });
+        if (!containerResult.success) {
+          throw new Error(`Failed to create MetadataContainer: ${JSON.stringify(containerResult.errors)}`);
+        }
+        
         const queryResult = await conn.tooling.query(`SELECT Id FROM ApexClass WHERE Name = '${args.className}'`);
         
         if (!queryResult.records || queryResult.records.length === 0) {
@@ -82,14 +89,34 @@ export async function handleManageApex(conn: any, args: ManageApexArgs) {
         
         const apexClassId = queryResult.records[0].Id;
         
-        const updateResult = await conn.tooling.sobject('ApexClass').update({
-          Id: apexClassId,
-          Body: args.body,
-          Status: args.status
+        const memberResult = await conn.tooling.sobject('ApexClassMember').create({
+          MetadataContainerId: containerResult.id,
+          ContentEntityId: apexClassId,
+          Body: args.body
         });
         
-        if (!updateResult.success) {
-          throw new Error(`Failed to update Apex class: ${args.className}. Details: ${JSON.stringify(updateResult.errors)}`);
+        if (!memberResult.success) {
+          throw new Error(`Failed to create ApexClassMember: ${JSON.stringify(memberResult.errors)}`);
+        }
+        
+        const deployResult = await conn.tooling.sobject('ContainerAsyncRequest').create({
+          IsCheckOnly: false,
+          MetadataContainerId: containerResult.id
+        });
+        
+        if (!deployResult.success) {
+          throw new Error(`Failed to deploy container: ${JSON.stringify(deployResult.errors)}`);
+        }
+        
+        let deploymentStatus;
+        do {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const statusResult = await conn.tooling.sobject('ContainerAsyncRequest').retrieve(deployResult.id);
+          deploymentStatus = statusResult.State;
+        } while (deploymentStatus === 'Queued' || deploymentStatus === 'InProgress');
+        
+        if (deploymentStatus !== 'Completed') {
+          throw new Error(`Deployment failed with status: ${deploymentStatus}`);
         }
         
         return {
