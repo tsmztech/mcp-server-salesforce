@@ -1,5 +1,11 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { ApexClass, ApexQueryArgs } from "../types/salesforce.js";
+import { ApexClass } from "../types/salesforce.js";
+
+export interface ApexQueryArgs {
+  className?: string;
+  includeBody?: boolean;
+  limit?: number;
+}
 
 export const QUERY_APEX: Tool = {
   name: "salesforce_query_apex",

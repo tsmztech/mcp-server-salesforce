@@ -16,8 +16,8 @@ import { DML_RECORDS, handleDMLRecords, DMLArgs } from "./tools/dml.js";
 import { MANAGE_OBJECT, handleManageObject, ManageObjectArgs } from "./tools/manageObject.js";
 import { MANAGE_FIELD, handleManageField, ManageFieldArgs } from "./tools/manageField.js";
 import { SEARCH_ALL, handleSearchAll, SearchAllArgs, WithClause } from "./tools/searchAll.js";
-import { QUERY_APEX, handleQueryApex } from "./tools/apex.js";
-import { ApexQueryArgs } from "./types/salesforce.js";
+import { QUERY_APEX, handleQueryApex, ApexQueryArgs } from "./tools/queryApex.js";
+import { MANAGE_APEX, handleManageApex, ManageApexArgs } from "./tools/manageApex.js";
 
 dotenv.config();
 
@@ -43,7 +43,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     MANAGE_OBJECT,
     MANAGE_FIELD,
     SEARCH_ALL,
-    QUERY_APEX
+    QUERY_APEX,
+    MANAGE_APEX
   ],
 }));
 
@@ -181,6 +182,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           limit: apexArgs.limit as number | undefined
         };
         return await handleQueryApex(conn, validatedArgs);
+      }
+
+      case "salesforce_manage_apex": {
+        const apexArgs = args as Record<string, unknown>;
+        if (!apexArgs.operation || !apexArgs.className) {
+          throw new Error('operation and className are required for Apex management');
+        }
+        const validatedArgs: ManageApexArgs = {
+          operation: apexArgs.operation as 'create',
+          className: apexArgs.className as string,
+          body: apexArgs.body as string | undefined,
+          status: apexArgs.status as 'Active' | 'Inactive' | undefined,
+          apiVersion: apexArgs.apiVersion as string | undefined
+        };
+        return await handleManageApex(conn, validatedArgs);
       }
 
       default:

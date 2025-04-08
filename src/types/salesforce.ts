@@ -44,9 +44,3 @@ export interface SalesforceObject {
     lastModifiedDate: string;
     body?: string;
   }
-
-  export interface ApexQueryArgs {
-    className?: string;
-    includeBody?: boolean;
-    limit?: number;
-  }
