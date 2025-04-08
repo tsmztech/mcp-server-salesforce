@@ -33,3 +33,20 @@ export interface SalesforceObject {
     id?: string;
     errors?: SalesforceError[] | SalesforceError;
   }
+
+  export interface ApexClass {
+    id: string;
+    name: string;
+    status: string;
+    isValid: boolean;
+    lengthWithoutComments: number;
+    createdDate: string;
+    lastModifiedDate: string;
+    body?: string;
+  }
+
+  export interface ApexQueryArgs {
+    className?: string;
+    includeBody?: boolean;
+    limit?: number;
+  }

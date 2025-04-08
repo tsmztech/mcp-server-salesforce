@@ -16,6 +16,8 @@ import { DML_RECORDS, handleDMLRecords, DMLArgs } from "./tools/dml.js";
 import { MANAGE_OBJECT, handleManageObject, ManageObjectArgs } from "./tools/manageObject.js";
 import { MANAGE_FIELD, handleManageField, ManageFieldArgs } from "./tools/manageField.js";
 import { SEARCH_ALL, handleSearchAll, SearchAllArgs, WithClause } from "./tools/searchAll.js";
+import { QUERY_APEX, handleQueryApex } from "./tools/apex.js";
+import { ApexQueryArgs } from "./types/salesforce.js";
 
 dotenv.config();
 
@@ -40,7 +42,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     DML_RECORDS,
     MANAGE_OBJECT,
     MANAGE_FIELD,
-    SEARCH_ALL
+    SEARCH_ALL,
+    QUERY_APEX
   ],
 }));
 
@@ -69,7 +72,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (!queryArgs.objectName || !Array.isArray(queryArgs.fields)) {
           throw new Error('objectName and fields array are required for query');
         }
-        // Type check and conversion
         const validatedArgs: QueryArgs = {
           objectName: queryArgs.objectName as string,
           fields: queryArgs.fields as string[],
@@ -171,6 +173,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return await handleSearchAll(conn, validatedArgs);
       }
 
+      case "salesforce_query_apex": {
+        const apexArgs = args as Record<string, unknown>;
+        const validatedArgs: ApexQueryArgs = {
+          className: apexArgs.className as string | undefined,
+          includeBody: apexArgs.includeBody as boolean | undefined,
+          limit: apexArgs.limit as number | undefined
+        };
+        return await handleQueryApex(conn, validatedArgs);
+      }
+
       default:
         return {
           content: [{ type: "text", text: `Unknown tool: ${name}` }],
@@ -189,9 +201,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 async function runServer() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error("Salesforce MCP Server running on stdio");
+  try {
+    console.error("Starting Salesforce MCP Server...");
+    const transport = new StdioServerTransport();
+    console.error("Created transport, connecting to server...");
+    await server.connect(transport);
+    console.error("Salesforce MCP Server running on stdio");
+  } catch (error) {
+    console.error("Error in runServer:", error);
+    throw error;
+  }
 }
 
 runServer().catch((error) => {
