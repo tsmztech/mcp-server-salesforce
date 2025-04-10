@@ -14,6 +14,7 @@ An MCP (Model Context Protocol) server implementation that integrates Claude wit
 * **Flexible Data Queries**: Query records with relationship support and complex filters
 * **Data Manipulation**: Insert, update, delete, and upsert records with ease
 * **Cross-Object Search**: Search across multiple objects using SOSL
+* **Apex Code Management**: Read, create, and update Apex classes
 * **Intuitive Error Handling**: Clear feedback with Salesforce-specific error details
 
 ## Installation
@@ -72,6 +73,21 @@ Search across multiple objects:
 * Multiple object support
 * Field snippets
 * Example: "Search for 'cloud' across Accounts and Opportunities"
+
+### salesforce_read_apex
+Read Apex classes:
+* Get full source code of specific classes
+* List classes matching name patterns
+* View class metadata (API version, status, etc.)
+* Support for wildcards (* and ?) in name patterns
+* Example: "Show me the AccountController class" or "Find all classes matching Account*Cont*"
+
+### salesforce_write_apex
+Create and update Apex classes:
+* Create new Apex classes
+* Update existing class implementations
+* Specify API versions
+* Example: "Create a new Apex class for handling account operations"
 
 ## Setup
 
@@ -167,6 +183,14 @@ Add to your `claude_desktop_config.json`:
 "Search for 'cloud' in Accounts and Opportunities"
 "Find mentions of 'network issue' in Cases and Knowledge Articles"
 "Search for customer name across all relevant objects"
+```
+
+### Managing Apex Code
+```
+"Show me all Apex classes with 'Controller' in the name"
+"Get the full code for the AccountService class"
+"Create a new Apex utility class for handling date operations"
+"Update the LeadConverter class to add a new method"
 ```
 
 ## Development

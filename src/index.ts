@@ -16,6 +16,8 @@ import { DML_RECORDS, handleDMLRecords, DMLArgs } from "./tools/dml.js";
 import { MANAGE_OBJECT, handleManageObject, ManageObjectArgs } from "./tools/manageObject.js";
 import { MANAGE_FIELD, handleManageField, ManageFieldArgs } from "./tools/manageField.js";
 import { SEARCH_ALL, handleSearchAll, SearchAllArgs, WithClause } from "./tools/searchAll.js";
+import { READ_APEX, handleReadApex, ReadApexArgs } from "./tools/readApex.js";
+import { WRITE_APEX, handleWriteApex, WriteApexArgs } from "./tools/writeApex.js";
 
 dotenv.config();
 
@@ -40,7 +42,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     DML_RECORDS,
     MANAGE_OBJECT,
     MANAGE_FIELD,
-    SEARCH_ALL
+    SEARCH_ALL,
+    READ_APEX,
+    WRITE_APEX
   ],
 }));
 
@@ -169,6 +173,36 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
 
         return await handleSearchAll(conn, validatedArgs);
+      }
+
+      case "salesforce_read_apex": {
+        const apexArgs = args as Record<string, unknown>;
+        
+        // Type check and conversion
+        const validatedArgs: ReadApexArgs = {
+          className: apexArgs.className as string | undefined,
+          namePattern: apexArgs.namePattern as string | undefined,
+          includeMetadata: apexArgs.includeMetadata as boolean | undefined
+        };
+
+        return await handleReadApex(conn, validatedArgs);
+      }
+
+      case "salesforce_write_apex": {
+        const apexArgs = args as Record<string, unknown>;
+        if (!apexArgs.operation || !apexArgs.className || !apexArgs.body) {
+          throw new Error('operation, className, and body are required for writing Apex');
+        }
+        
+        // Type check and conversion
+        const validatedArgs: WriteApexArgs = {
+          operation: apexArgs.operation as 'create' | 'update',
+          className: apexArgs.className as string,
+          apiVersion: apexArgs.apiVersion as string | undefined,
+          body: apexArgs.body as string
+        };
+
+        return await handleWriteApex(conn, validatedArgs);
       }
 
       default:
