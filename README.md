@@ -76,12 +76,24 @@ Search across multiple objects:
 ## Setup
 
 ### Salesforce Authentication
+You can connect to Salesforce using one of two authentication methods:
+
+#### 1. Username/Password Authentication (Default)
 1. Set up your Salesforce credentials
 2. Get your security token (Reset from Salesforce Settings)
+
+#### 2. OAuth 2.0 Client Credentials Flow
+1. Create a Connected App in Salesforce
+2. Enable OAuth settings and select "Client Credentials Flow"
+3. Set appropriate scopes (typically "api" is sufficient)
+4. Save the Client ID and Client Secret
+5. **Important**: Note your instance URL (e.g., `https://your-domain.my.salesforce.com`) as it's required for authentication
 
 ### Usage with Claude Desktop
 
 Add to your `claude_desktop_config.json`:
+
+#### For Username/Password Authentication:
 ```json
 {
   "mcpServers": {
@@ -89,6 +101,7 @@ Add to your `claude_desktop_config.json`:
       "command": "npx",
       "args": ["-y", "@tsmztech/mcp-server-salesforce"],
       "env": {
+        "SALESFORCE_CONNECTION_TYPE": "User_Password",
         "SALESFORCE_USERNAME": "your_username",
         "SALESFORCE_PASSWORD": "your_password",
         "SALESFORCE_TOKEN": "your_security_token",
@@ -98,6 +111,26 @@ Add to your `claude_desktop_config.json`:
   }
 }
 ```
+
+#### For OAuth 2.0 Client Credentials Flow:
+```json
+{
+  "mcpServers": {
+    "salesforce": {
+      "command": "npx",
+      "args": ["-y", "@tsmztech/mcp-server-salesforce"],
+      "env": {
+        "SALESFORCE_CONNECTION_TYPE": "OAuth_2.0_Client_Credentials",
+        "SALESFORCE_CLIENT_ID": "your_client_id",
+        "SALESFORCE_CLIENT_SECRET": "your_client_secret",
+        "SALESFORCE_INSTANCE_URL": "https://your-domain.my.salesforce.com"  // REQUIRED: Must be your exact Salesforce instance URL
+      }
+    }
+  }
+}
+```
+
+> **Note**: For OAuth 2.0 Client Credentials Flow, the `SALESFORCE_INSTANCE_URL` must be your exact Salesforce instance URL (e.g., `https://your-domain.my.salesforce.com`). The token endpoint will be constructed as `<instance_url>/services/oauth2/token`.
 
 ## Example Usage
 
