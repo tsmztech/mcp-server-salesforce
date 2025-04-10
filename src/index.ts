@@ -18,6 +18,8 @@ import { MANAGE_FIELD, handleManageField, ManageFieldArgs } from "./tools/manage
 import { SEARCH_ALL, handleSearchAll, SearchAllArgs, WithClause } from "./tools/searchAll.js";
 import { READ_APEX, handleReadApex, ReadApexArgs } from "./tools/readApex.js";
 import { WRITE_APEX, handleWriteApex, WriteApexArgs } from "./tools/writeApex.js";
+import { READ_APEX_TRIGGER, handleReadApexTrigger, ReadApexTriggerArgs } from "./tools/readApexTrigger.js";
+import { WRITE_APEX_TRIGGER, handleWriteApexTrigger, WriteApexTriggerArgs } from "./tools/writeApexTrigger.js";
 
 dotenv.config();
 
@@ -44,7 +46,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     MANAGE_FIELD,
     SEARCH_ALL,
     READ_APEX,
-    WRITE_APEX
+    WRITE_APEX,
+    READ_APEX_TRIGGER,
+    WRITE_APEX_TRIGGER
   ],
 }));
 
@@ -203,6 +207,37 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
 
         return await handleWriteApex(conn, validatedArgs);
+      }
+
+      case "salesforce_read_apex_trigger": {
+        const triggerArgs = args as Record<string, unknown>;
+        
+        // Type check and conversion
+        const validatedArgs: ReadApexTriggerArgs = {
+          triggerName: triggerArgs.triggerName as string | undefined,
+          namePattern: triggerArgs.namePattern as string | undefined,
+          includeMetadata: triggerArgs.includeMetadata as boolean | undefined
+        };
+
+        return await handleReadApexTrigger(conn, validatedArgs);
+      }
+
+      case "salesforce_write_apex_trigger": {
+        const triggerArgs = args as Record<string, unknown>;
+        if (!triggerArgs.operation || !triggerArgs.triggerName || !triggerArgs.body) {
+          throw new Error('operation, triggerName, and body are required for writing Apex trigger');
+        }
+        
+        // Type check and conversion
+        const validatedArgs: WriteApexTriggerArgs = {
+          operation: triggerArgs.operation as 'create' | 'update',
+          triggerName: triggerArgs.triggerName as string,
+          objectName: triggerArgs.objectName as string | undefined,
+          apiVersion: triggerArgs.apiVersion as string | undefined,
+          body: triggerArgs.body as string
+        };
+
+        return await handleWriteApexTrigger(conn, validatedArgs);
       }
 
       default:

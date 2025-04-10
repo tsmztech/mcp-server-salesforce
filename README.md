@@ -14,7 +14,7 @@ An MCP (Model Context Protocol) server implementation that integrates Claude wit
 * **Flexible Data Queries**: Query records with relationship support and complex filters
 * **Data Manipulation**: Insert, update, delete, and upsert records with ease
 * **Cross-Object Search**: Search across multiple objects using SOSL
-* **Apex Code Management**: Read, create, and update Apex classes
+* **Apex Code Management**: Read, create, and update Apex classes and triggers
 * **Intuitive Error Handling**: Clear feedback with Salesforce-specific error details
 
 ## Installation
@@ -88,6 +88,21 @@ Create and update Apex classes:
 * Update existing class implementations
 * Specify API versions
 * Example: "Create a new Apex class for handling account operations"
+
+### salesforce_read_apex_trigger
+Read Apex triggers:
+* Get full source code of specific triggers
+* List triggers matching name patterns
+* View trigger metadata (API version, object, status, etc.)
+* Support for wildcards (* and ?) in name patterns
+* Example: "Show me the AccountTrigger" or "Find all triggers for Contact object"
+
+### salesforce_write_apex_trigger
+Create and update Apex triggers:
+* Create new Apex triggers for specific objects
+* Update existing trigger implementations
+* Specify API versions and event operations
+* Example: "Create a new trigger for the Account object" or "Update the Lead trigger"
 
 ## Setup
 
@@ -191,6 +206,14 @@ Add to your `claude_desktop_config.json`:
 "Get the full code for the AccountService class"
 "Create a new Apex utility class for handling date operations"
 "Update the LeadConverter class to add a new method"
+```
+
+### Managing Apex Triggers
+```
+"List all triggers for the Account object"
+"Show me the code for the ContactTrigger"
+"Create a new trigger for the Opportunity object"
+"Update the Case trigger to handle after delete events"
 ```
 
 ## Development
