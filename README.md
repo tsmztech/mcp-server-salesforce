@@ -111,6 +111,14 @@ Execute anonymous Apex code:
 * Useful for data operations not directly supported by other tools
 * Example: "Execute Apex code to calculate account metrics" or "Run a script to update related records"
 
+### salesforce_manage_debug_logs
+Manage debug logs for Salesforce users:
+* Enable debug logs for specific users
+* Disable active debug log configurations
+* Retrieve and view debug logs
+* Configure log levels (NONE, ERROR, WARN, INFO, DEBUG, FINE, FINER, FINEST)
+* Example: "Enable debug logs for user@example.com" or "Retrieve recent logs for an admin user"
+
 ## Setup
 
 ### Salesforce Authentication
@@ -228,6 +236,14 @@ Add to your `claude_desktop_config.json`:
 "Execute Apex code to calculate account metrics"
 "Run a script to update related records"
 "Execute a batch job to process large datasets"
+```
+
+### Managing Debug Logs
+```
+"Enable debug logs for user@example.com"
+"Retrieve recent logs for an admin user"
+"Disable debug logs for a specific user"
+"Configure log level to DEBUG for a user"
 ```
 
 ## Development

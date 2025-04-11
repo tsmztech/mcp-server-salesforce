@@ -21,6 +21,7 @@ import { WRITE_APEX, handleWriteApex, WriteApexArgs } from "./tools/writeApex.js
 import { READ_APEX_TRIGGER, handleReadApexTrigger, ReadApexTriggerArgs } from "./tools/readApexTrigger.js";
 import { WRITE_APEX_TRIGGER, handleWriteApexTrigger, WriteApexTriggerArgs } from "./tools/writeApexTrigger.js";
 import { EXECUTE_ANONYMOUS, handleExecuteAnonymous, ExecuteAnonymousArgs } from "./tools/executeAnonymous.js";
+import { MANAGE_DEBUG_LOGS, handleManageDebugLogs, ManageDebugLogsArgs } from "./tools/manageDebugLogs.js";
 
 dotenv.config();
 
@@ -50,7 +51,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     WRITE_APEX,
     READ_APEX_TRIGGER,
     WRITE_APEX_TRIGGER,
-    EXECUTE_ANONYMOUS
+    EXECUTE_ANONYMOUS,
+    MANAGE_DEBUG_LOGS
   ],
 }));
 
@@ -255,6 +257,26 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
 
         return await handleExecuteAnonymous(conn, validatedArgs);
+      }
+
+      case "salesforce_manage_debug_logs": {
+        const debugLogsArgs = args as Record<string, unknown>;
+        if (!debugLogsArgs.operation || !debugLogsArgs.username) {
+          throw new Error('operation and username are required for managing debug logs');
+        }
+        
+        // Type check and conversion
+        const validatedArgs: ManageDebugLogsArgs = {
+          operation: debugLogsArgs.operation as 'enable' | 'disable' | 'retrieve',
+          username: debugLogsArgs.username as string,
+          logLevel: debugLogsArgs.logLevel as 'NONE' | 'ERROR' | 'WARN' | 'INFO' | 'DEBUG' | 'FINE' | 'FINER' | 'FINEST' | undefined,
+          expirationTime: debugLogsArgs.expirationTime as number | undefined,
+          limit: debugLogsArgs.limit as number | undefined,
+          logId: debugLogsArgs.logId as string | undefined,
+          includeBody: debugLogsArgs.includeBody as boolean | undefined
+        };
+
+        return await handleManageDebugLogs(conn, validatedArgs);
       }
 
       default:
