@@ -20,6 +20,7 @@ import { READ_APEX, handleReadApex, ReadApexArgs } from "./tools/readApex.js";
 import { WRITE_APEX, handleWriteApex, WriteApexArgs } from "./tools/writeApex.js";
 import { READ_APEX_TRIGGER, handleReadApexTrigger, ReadApexTriggerArgs } from "./tools/readApexTrigger.js";
 import { WRITE_APEX_TRIGGER, handleWriteApexTrigger, WriteApexTriggerArgs } from "./tools/writeApexTrigger.js";
+import { EXECUTE_ANONYMOUS, handleExecuteAnonymous, ExecuteAnonymousArgs } from "./tools/executeAnonymous.js";
 
 dotenv.config();
 
@@ -48,7 +49,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     READ_APEX,
     WRITE_APEX,
     READ_APEX_TRIGGER,
-    WRITE_APEX_TRIGGER
+    WRITE_APEX_TRIGGER,
+    EXECUTE_ANONYMOUS
   ],
 }));
 
@@ -238,6 +240,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
 
         return await handleWriteApexTrigger(conn, validatedArgs);
+      }
+
+      case "salesforce_execute_anonymous": {
+        const executeArgs = args as Record<string, unknown>;
+        if (!executeArgs.apexCode) {
+          throw new Error('apexCode is required for executing anonymous Apex');
+        }
+        
+        // Type check and conversion
+        const validatedArgs: ExecuteAnonymousArgs = {
+          apexCode: executeArgs.apexCode as string,
+          logLevel: executeArgs.logLevel as 'NONE' | 'ERROR' | 'WARN' | 'INFO' | 'DEBUG' | 'FINE' | 'FINER' | 'FINEST' | undefined
+        };
+
+        return await handleExecuteAnonymous(conn, validatedArgs);
       }
 
       default:

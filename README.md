@@ -104,6 +104,13 @@ Create and update Apex triggers:
 * Specify API versions and event operations
 * Example: "Create a new trigger for the Account object" or "Update the Lead trigger"
 
+### salesforce_execute_anonymous
+Execute anonymous Apex code:
+* Run Apex code without creating a permanent class
+* View debug logs and execution results
+* Useful for data operations not directly supported by other tools
+* Example: "Execute Apex code to calculate account metrics" or "Run a script to update related records"
+
 ## Setup
 
 ### Salesforce Authentication
@@ -214,6 +221,13 @@ Add to your `claude_desktop_config.json`:
 "Show me the code for the ContactTrigger"
 "Create a new trigger for the Opportunity object"
 "Update the Case trigger to handle after delete events"
+```
+
+### Executing Anonymous Apex Code
+```
+"Execute Apex code to calculate account metrics"
+"Run a script to update related records"
+"Execute a batch job to process large datasets"
 ```
 
 ## Development
