@@ -1,6 +1,6 @@
 {
     "name": "@tsmztech/mcp-server-salesforce",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "description": "A Salesforce connector MCP Server.",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
