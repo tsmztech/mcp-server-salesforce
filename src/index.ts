@@ -16,6 +16,7 @@ import { AGGREGATE_QUERY, handleAggregateQuery, AggregateQueryArgs } from "./too
 import { DML_RECORDS, handleDMLRecords, DMLArgs } from "./tools/dml.js";
 import { MANAGE_OBJECT, handleManageObject, ManageObjectArgs } from "./tools/manageObject.js";
 import { MANAGE_FIELD, handleManageField, ManageFieldArgs } from "./tools/manageField.js";
+import { MANAGE_FIELD_PERMISSIONS, handleManageFieldPermissions, ManageFieldPermissionsArgs } from "./tools/manageFieldPermissions.js";
 import { SEARCH_ALL, handleSearchAll, SearchAllArgs, WithClause } from "./tools/searchAll.js";
 import { READ_APEX, handleReadApex, ReadApexArgs } from "./tools/readApex.js";
 import { WRITE_APEX, handleWriteApex, WriteApexArgs } from "./tools/writeApex.js";
@@ -48,6 +49,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     DML_RECORDS,
     MANAGE_OBJECT,
     MANAGE_FIELD,
+    MANAGE_FIELD_PERMISSIONS,
     SEARCH_ALL,
     READ_APEX,
     WRITE_APEX,
@@ -167,9 +169,26 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           relationshipName: fieldArgs.relationshipName as string | undefined,
           deleteConstraint: fieldArgs.deleteConstraint as 'Cascade' | 'Restrict' | 'SetNull' | undefined,
           picklistValues: fieldArgs.picklistValues as Array<{ label: string; isDefault?: boolean }> | undefined,
-          description: fieldArgs.description as string | undefined
+          description: fieldArgs.description as string | undefined,
+          grantAccessTo: fieldArgs.grantAccessTo as string[] | undefined
         };
         return await handleManageField(conn, validatedArgs);
+      }
+
+      case "salesforce_manage_field_permissions": {
+        const permArgs = args as Record<string, unknown>;
+        if (!permArgs.operation || !permArgs.objectName || !permArgs.fieldName) {
+          throw new Error('operation, objectName, and fieldName are required for field permissions management');
+        }
+        const validatedArgs: ManageFieldPermissionsArgs = {
+          operation: permArgs.operation as 'grant' | 'revoke' | 'view',
+          objectName: permArgs.objectName as string,
+          fieldName: permArgs.fieldName as string,
+          profileNames: permArgs.profileNames as string[] | undefined,
+          readable: permArgs.readable as boolean | undefined,
+          editable: permArgs.editable as boolean | undefined
+        };
+        return await handleManageFieldPermissions(conn, validatedArgs);
       }
 
       case "salesforce_search_all": {

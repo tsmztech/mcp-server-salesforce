@@ -7,8 +7,9 @@ export const MANAGE_FIELD: Tool = {
   - Field Types: Text, Number, Date, Lookup, Master-Detail, Picklist etc.
   - Properties: Required, Unique, External ID, Length, Scale etc.
   - Relationships: Create lookups and master-detail relationships
+  - Automatically grants Field Level Security to System Administrator (or specified profiles)
   Examples: Add Rating__c picklist to Account, Create Account lookup on Custom Object
-  Note: Changes affect metadata and require proper permissions`,
+  Note: Use grantAccessTo parameter to specify profiles, defaults to System Administrator`,
   inputSchema: {
     type: "object",
     properties: {
@@ -105,6 +106,12 @@ export const MANAGE_FIELD: Tool = {
         type: "string",
         description: "Description of the field",
         optional: true
+      },
+      grantAccessTo: {
+        type: "array",
+        items: { type: "string" },
+        description: "Profile names to grant field access to (defaults to ['System Administrator'])",
+        optional: true
       }
     },
     required: ["operation", "objectName", "fieldName"]
@@ -129,10 +136,104 @@ export interface ManageFieldArgs {
   deleteConstraint?: 'Cascade' | 'Restrict' | 'SetNull';
   picklistValues?: Array<{ label: string; isDefault?: boolean }>;
   description?: string;
+  grantAccessTo?: string[];
+}
+
+// Helper function to set field permissions (simplified version of the one in manageFieldPermissions.ts)
+async function grantFieldPermissions(conn: any, objectName: string, fieldName: string, profileNames: string[]): Promise<{success: boolean; message: string}> {
+  try {
+    const fieldApiName = fieldName.endsWith('__c') || fieldName.includes('.') ? fieldName : `${fieldName}__c`;
+    const fullFieldName = `${objectName}.${fieldApiName}`;
+    
+    // Get profile IDs
+    const profileQuery = await conn.query(`
+      SELECT Id, Name 
+      FROM Profile 
+      WHERE Name IN (${profileNames.map(name => `'${name}'`).join(', ')})
+    `);
+
+    if (profileQuery.records.length === 0) {
+      return { success: false, message: `No profiles found matching: ${profileNames.join(', ')}` };
+    }
+
+    const results: any[] = [];
+    const errors: string[] = [];
+
+    for (const profile of profileQuery.records) {
+      try {
+        // Check if permission already exists
+        const existingPerm = await conn.query(`
+          SELECT Id, PermissionsRead, PermissionsEdit
+          FROM FieldPermissions
+          WHERE ParentId IN (
+            SELECT Id FROM PermissionSet 
+            WHERE IsOwnedByProfile = true 
+            AND ProfileId = '${profile.Id}'
+          )
+          AND Field = '${fullFieldName}'
+          AND SobjectType = '${objectName}'
+          LIMIT 1
+        `);
+
+        if (existingPerm.records.length > 0) {
+          // Update existing permission
+          await conn.sobject('FieldPermissions').update({
+            Id: existingPerm.records[0].Id,
+            PermissionsRead: true,
+            PermissionsEdit: true
+          });
+          results.push(profile.Name);
+        } else {
+          // Get the PermissionSet ID for this profile
+          const permSetQuery = await conn.query(`
+            SELECT Id FROM PermissionSet 
+            WHERE IsOwnedByProfile = true 
+            AND ProfileId = '${profile.Id}'
+            LIMIT 1
+          `);
+
+          if (permSetQuery.records.length > 0) {
+            // Create new permission
+            await conn.sobject('FieldPermissions').create({
+              ParentId: permSetQuery.records[0].Id,
+              SobjectType: objectName,
+              Field: fullFieldName,
+              PermissionsRead: true,
+              PermissionsEdit: true
+            });
+            results.push(profile.Name);
+          } else {
+            errors.push(profile.Name);
+          }
+        }
+      } catch (error) {
+        errors.push(profile.Name);
+        console.error(`Error granting permission to ${profile.Name}:`, error);
+      }
+    }
+
+    if (results.length > 0) {
+      return {
+        success: true,
+        message: `Field Level Security granted to: ${results.join(', ')}${errors.length > 0 ? `. Failed for: ${errors.join(', ')}` : ''}`
+      };
+    } else {
+      return {
+        success: false,
+        message: `Could not grant Field Level Security to any profiles.`
+      };
+    }
+  } catch (error) {
+    console.error('Error granting field permissions:', error);
+    return {
+      success: false,
+      message: `Field Level Security configuration failed.`
+    };
+  }
 }
 
 export async function handleManageField(conn: any, args: ManageFieldArgs) {
-  const { operation, objectName, fieldName, type, ...fieldProps } = args;
+  const { operation, objectName, fieldName, type, grantAccessTo, ...fieldProps } = args;
 
   try {
     if (operation === 'create') {
@@ -205,10 +306,21 @@ export async function handleManageField(conn: any, args: ManageFieldArgs) {
       const result = await conn.metadata.create('CustomField', metadata);
 
       if (result && (Array.isArray(result) ? result[0].success : result.success)) {
+        let permissionMessage = '';
+        
+        // Grant Field Level Security (default to System Administrator if not specified)
+        const profilesToGrant = grantAccessTo && grantAccessTo.length > 0 ? grantAccessTo : ['System Administrator'];
+        
+        // Wait a moment for field to be fully created
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const permissionResult = await grantFieldPermissions(conn, objectName, fieldName, profilesToGrant);
+        permissionMessage = `\n${permissionResult.message}`;
+        
         return {
           content: [{
             type: "text",
-            text: `Successfully created custom field ${fieldName}__c on ${objectName}`
+            text: `Successfully created custom field ${fieldName}__c on ${objectName}.${permissionMessage}`
           }],
           isError: false,
         };

@@ -74,7 +74,17 @@ Manage object fields:
 * Add new custom fields
 * Modify field properties
 * Create relationships
+* Automatically grants Field Level Security to System Administrator by default
+* Use `grantAccessTo` parameter to specify different profiles
 * Example: "Add a Rating picklist field to Account"
+
+### salesforce_manage_field_permissions
+Manage Field Level Security (Field Permissions):
+* Grant or revoke read/edit access to fields for specific profiles
+* View current field permissions
+* Bulk update permissions for multiple profiles
+* Useful for managing permissions after field creation or for existing fields
+* Example: "Grant System Administrator access to Custom_Field__c on Account"
 
 ### salesforce_search_all
 Search across multiple objects:
@@ -224,6 +234,22 @@ Add to your `claude_desktop_config.json`:
 "Create a Customer Feedback object"
 "Add a Rating field to the Feedback object"
 "Update sharing settings for the Service Request object"
+```
+Examples with Field Level Security:
+```
+# Default - grants access to System Administrator automatically
+"Create a Status picklist field on Custom_Object__c"
+
+# Custom profiles - grants access to specified profiles
+"Create a Revenue currency field on Account and grant access to Sales User and Marketing User profiles"
+```
+
+### Managing Field Permissions
+```
+"Grant System Administrator access to Custom_Field__c on Account"
+"Give read-only access to Rating__c field for Sales User profile"
+"View which profiles have access to the Custom_Field__c"
+"Revoke field access for specific profiles"
 ```
 
 ### Searching Across Objects
