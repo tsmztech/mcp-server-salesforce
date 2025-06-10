@@ -4,6 +4,8 @@ export const QUERY_RECORDS: Tool = {
   name: "salesforce_query_records",
   description: `Query records from any Salesforce object using SOQL, including relationship queries.
 
+NOTE: For queries with GROUP BY, aggregate functions (COUNT, SUM, AVG, etc.), or HAVING clauses, use salesforce_aggregate_query instead.
+
 Examples:
 1. Parent-to-child query (e.g., Account with Contacts):
    - objectName: "Account"

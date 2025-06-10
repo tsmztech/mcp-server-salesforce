@@ -44,6 +44,15 @@ Query records with relationship support:
 * Child-to-parent relationships
 * Complex WHERE conditions
 * Example: "Get all Accounts with their related Contacts"
+* Note: For queries with GROUP BY or aggregate functions, use salesforce_aggregate_query
+
+### salesforce_aggregate_query
+Execute aggregate queries with GROUP BY:
+* GROUP BY single or multiple fields
+* Aggregate functions: COUNT, COUNT_DISTINCT, SUM, AVG, MIN, MAX
+* HAVING clauses for filtering grouped results
+* Date/time grouping functions
+* Example: "Count opportunities by stage" or "Find accounts with more than 10 opportunities"
 
 ### salesforce_dml_records
 Perform data operations:
@@ -199,6 +208,15 @@ Add to your `claude_desktop_config.json`:
 "Get all Accounts created this month"
 "Show me high-priority Cases with their related Contacts"
 "Find all Opportunities over $100k"
+```
+
+### Aggregate Queries
+```
+"Count opportunities by stage"
+"Show me the total revenue by account"
+"Find accounts with more than 10 opportunities"
+"Calculate average deal size by sales rep and quarter"
+"Get the number of cases by priority and status"
 ```
 
 ### Managing Custom Objects

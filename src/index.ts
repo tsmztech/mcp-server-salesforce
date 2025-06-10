@@ -12,6 +12,7 @@ import { createSalesforceConnection } from "./utils/connection.js";
 import { SEARCH_OBJECTS, handleSearchObjects } from "./tools/search.js";
 import { DESCRIBE_OBJECT, handleDescribeObject } from "./tools/describe.js";
 import { QUERY_RECORDS, handleQueryRecords, QueryArgs } from "./tools/query.js";
+import { AGGREGATE_QUERY, handleAggregateQuery, AggregateQueryArgs } from "./tools/aggregateQuery.js";
 import { DML_RECORDS, handleDMLRecords, DMLArgs } from "./tools/dml.js";
 import { MANAGE_OBJECT, handleManageObject, ManageObjectArgs } from "./tools/manageObject.js";
 import { MANAGE_FIELD, handleManageField, ManageFieldArgs } from "./tools/manageField.js";
@@ -43,6 +44,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     SEARCH_OBJECTS, 
     DESCRIBE_OBJECT, 
     QUERY_RECORDS, 
+    AGGREGATE_QUERY,
     DML_RECORDS,
     MANAGE_OBJECT,
     MANAGE_FIELD,
@@ -90,6 +92,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           limit: queryArgs.limit as number | undefined
         };
         return await handleQueryRecords(conn, validatedArgs);
+      }
+
+      case "salesforce_aggregate_query": {
+        const aggregateArgs = args as Record<string, unknown>;
+        if (!aggregateArgs.objectName || !Array.isArray(aggregateArgs.selectFields) || !Array.isArray(aggregateArgs.groupByFields)) {
+          throw new Error('objectName, selectFields array, and groupByFields array are required for aggregate query');
+        }
+        // Type check and conversion
+        const validatedArgs: AggregateQueryArgs = {
+          objectName: aggregateArgs.objectName as string,
+          selectFields: aggregateArgs.selectFields as string[],
+          groupByFields: aggregateArgs.groupByFields as string[],
+          whereClause: aggregateArgs.whereClause as string | undefined,
+          havingClause: aggregateArgs.havingClause as string | undefined,
+          orderBy: aggregateArgs.orderBy as string | undefined,
+          limit: aggregateArgs.limit as number | undefined
+        };
+        return await handleAggregateQuery(conn, validatedArgs);
       }
 
       case "salesforce_dml_records": {
