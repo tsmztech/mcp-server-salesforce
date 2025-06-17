@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/tsmztech-mcp-server-salesforce-badge.png)](https://mseep.ai/app/tsmztech-mcp-server-salesforce)
+
 # Salesforce MCP Server
 
 An MCP (Model Context Protocol) server implementation that integrates Claude with Salesforce, enabling natural language interactions with your Salesforce data and metadata. This server allows Claude to query, modify, and manage your Salesforce objects and records using everyday language.
