@@ -16,6 +16,7 @@ An MCP (Model Context Protocol) server implementation that integrates Claude wit
 * **Cross-Object Search**: Search across multiple objects using SOSL
 * **Apex Code Management**: Read, create, and update Apex classes and triggers
 * **Intuitive Error Handling**: Clear feedback with Salesforce-specific error details
+* **Switchable Authentication**: Supports multiple orgs. Easily switch your active Salesforce org based on the default org configured in your VS Code workspace (use Salesforce_CLI authentication for this feature).
 
 ## Installation
 
@@ -141,7 +142,7 @@ Manage debug logs for Salesforce users:
 ## Setup
 
 ### Salesforce Authentication
-You can connect to Salesforce using one of two authentication methods:
+You can connect to Salesforce using one of three authentication methods:
 
 #### 1. Username/Password Authentication (Default)
 1. Set up your Salesforce credentials
@@ -154,9 +155,33 @@ You can connect to Salesforce using one of two authentication methods:
 4. Save the Client ID and Client Secret
 5. **Important**: Note your instance URL (e.g., `https://your-domain.my.salesforce.com`) as it's required for authentication
 
+#### 3. Salesforce CLI Authentication (Recommended for local/dev)
+1. Install and authenticate Salesforce CLI (`sf`).
+2. Make sure your org is authenticated and accessible via `sf org display --json` in the root of your Salesforce project.
+3. The server will automatically retrieve the access token and instance url using the CLI.
+
+
+
 ### Usage with Claude Desktop
 
+
 Add to your `claude_desktop_config.json`:
+
+
+#### For Salesforce CLI Authentication:
+```json
+{
+  "mcpServers": {
+    "salesforce": {
+      "command": "npx",
+      "args": ["-y", "@tsmztech/mcp-server-salesforce"],
+      "env": {
+        "SALESFORCE_CONNECTION_TYPE": "Salesforce_CLI",
+      }
+    }
+  }
+}
+```
 
 #### For Username/Password Authentication:
 ```json

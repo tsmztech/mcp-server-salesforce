@@ -1,7 +1,74 @@
 import jsforce from 'jsforce';
-import { ConnectionType, ConnectionConfig } from '../types/connection.js';
+import { ConnectionType, ConnectionConfig, SalesforceCLIResponse } from '../types/connection.js';
 import https from 'https';
 import querystring from 'querystring';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
+
+/**
+ * Executes the Salesforce CLI command to get org information
+ * @param projectPath Optional path to the Salesforce project root
+ * @returns Parsed response from sf org display --json command
+ */
+async function getSalesforceOrgInfo(): Promise<SalesforceCLIResponse> {
+  try {
+    const command = 'sf org display --json';
+    const options = {};
+    const cwdLog = process.cwd();
+    console.error(`Executing Salesforce CLI command: ${command} in directory: ${cwdLog}`);
+
+    // Use execAsync and handle both success and error cases
+    let stdout = '';
+    let stderr = '';
+    let error: any = null;
+    try {
+      const result = await execAsync(command, options);
+      stdout = result.stdout;
+      stderr = result.stderr;
+    } catch (err: any) {
+      // If the command fails, capture stdout/stderr for diagnostics
+      error = err;
+      stdout = err.stdout || '';
+      stderr = err.stderr || '';
+    }
+
+
+    // Log always the output for debug
+    console.error('[Salesforce CLI] STDOUT:', stdout);
+    if (stderr) {
+      console.warn('[Salesforce CLI] STDERR:', stderr);
+    }
+
+    // Try to parse stdout as JSON
+    let response: SalesforceCLIResponse;
+    try {
+      response = JSON.parse(stdout);
+    } catch (parseErr) {
+      throw new Error(`Failed to parse Salesforce CLI JSON output.\nSTDOUT: ${stdout}\nSTDERR: ${stderr}`);
+    }
+
+    // If the command failed (non-zero exit code), throw with details
+    if (error || response.status !== 0) {
+      throw new Error(`Salesforce CLI command failed.\nStatus: ${response.status}\nSTDOUT: ${stdout}\nSTDERR: ${stderr}`);
+    }
+
+    // Accept any org that returns accessToken and instanceUrl
+    if (!response.result || !response.result.accessToken || !response.result.instanceUrl) {
+      throw new Error(`Salesforce CLI did not return accessToken and instanceUrl.\nResult: ${JSON.stringify(response.result)}`);
+    }
+
+    return response;
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes('sf: command not found') || error.message.includes("'sf' is not recognized")) {
+        throw new Error('Salesforce CLI (sf) is not installed or not in PATH. Please install the Salesforce CLI to use this authentication method.');
+      }
+    }
+    throw new Error(`Failed to get Salesforce org info: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
 
 /**
  * Creates a Salesforce connection using either username/password or OAuth 2.0 Client Credentials Flow
@@ -86,6 +153,22 @@ export async function createSalesforceConnection(config?: ConnectionConfig) {
         instanceUrl: tokenResponse.instance_url,
         accessToken: tokenResponse.access_token
       });
+      
+      return conn;
+    } else if (connectionType === ConnectionType.Salesforce_CLI) {
+      // Salesforce CLI authentication using sf org display
+      console.error('Connecting to Salesforce using Salesforce CLI authentication');
+      
+      // Execute sf org display --json command
+      const orgInfo = await getSalesforceOrgInfo();
+      
+      // Create connection with the access token from CLI
+      const conn = new jsforce.Connection({
+        instanceUrl: orgInfo.result.instanceUrl,
+        accessToken: orgInfo.result.accessToken
+      });
+      
+      console.error(`Connected to Salesforce org: ${orgInfo.result.username} (${orgInfo.result.alias || 'No alias'})`);
       
       return conn;
     } else {
