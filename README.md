@@ -155,7 +155,7 @@ You can connect to Salesforce using one of three authentication methods:
 4. Save the Client ID and Client Secret
 5. **Important**: Note your instance URL (e.g., `https://your-domain.my.salesforce.com`) as it's required for authentication
 
-#### 3. Salesforce CLI Authentication (Recommended for local/dev)
+#### 3. Salesforce CLI Authentication (Recommended for local/dev) (contribution by @andrea9293)
 1. Install and authenticate Salesforce CLI (`sf`).
 2. Make sure your org is authenticated and accessible via `sf org display --json` in the root of your Salesforce project.
 3. The server will automatically retrieve the access token and instance url using the CLI.
