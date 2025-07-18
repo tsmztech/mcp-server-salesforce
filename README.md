@@ -176,7 +176,7 @@ Add to your `claude_desktop_config.json`:
       "command": "npx",
       "args": ["-y", "@tsmztech/mcp-server-salesforce"],
       "env": {
-        "SALESFORCE_CONNECTION_TYPE": "Salesforce_CLI",
+        "SALESFORCE_CONNECTION_TYPE": "Salesforce_CLI"
       }
     }
   }
