@@ -15,23 +15,22 @@ const execAsync = promisify(exec);
 async function getSalesforceOrgInfo(): Promise<SalesforceCLIResponse> {
   try {
     const command = 'sf org display --json';
-    const options = {};
     const cwdLog = process.cwd();
-    console.error(`Executing Salesforce CLI command: ${command} in directory: ${cwdLog}`);
+    console.log(`Executing Salesforce CLI command: ${command} in directory: ${cwdLog}`);
 
     // Use execAsync and handle both success and error cases
     let stdout = '';
     let stderr = '';
-    let error: any = null;
+    let error: Error | { stdout?: string; stderr?: string } | null = null;
     try {
-      const result = await execAsync(command, options);
+      const result = await execAsync(command);
       stdout = result.stdout;
       stderr = result.stderr;
     } catch (err: any) {
       // If the command fails, capture stdout/stderr for diagnostics
       error = err;
-      stdout = err.stdout || '';
-      stderr = err.stderr || '';
+      stdout = 'stdout' in err ? err.stdout || '' : '';
+      stderr = 'stderr' in err ? err.stderr || '' : '';
     }
 
 
@@ -157,7 +156,7 @@ export async function createSalesforceConnection(config?: ConnectionConfig) {
       return conn;
     } else if (connectionType === ConnectionType.Salesforce_CLI) {
       // Salesforce CLI authentication using sf org display
-      console.error('Connecting to Salesforce using Salesforce CLI authentication');
+      console.log('Connecting to Salesforce using Salesforce CLI authentication');
       
       // Execute sf org display --json command
       const orgInfo = await getSalesforceOrgInfo();
@@ -168,7 +167,7 @@ export async function createSalesforceConnection(config?: ConnectionConfig) {
         accessToken: orgInfo.result.accessToken
       });
       
-      console.error(`Connected to Salesforce org: ${orgInfo.result.username} (${orgInfo.result.alias || 'No alias'})`);
+      console.log(`Connected to Salesforce org: ${orgInfo.result.username} (${orgInfo.result.alias || 'No alias'})`);
       
       return conn;
     } else {
