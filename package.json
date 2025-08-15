@@ -33,7 +33,7 @@
     "devDependencies": {
       "@types/node": "^22.10.1",
       "typescript": "^5.7.2",
-      "shx": "^0.3.4"
+      "shx": "^0.4.0"
     }
   }
   
