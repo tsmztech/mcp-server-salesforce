@@ -1,8 +1,6 @@
 name: ci
 on:
   pull_request:
-  push:
-    branches: [ main ]
 permissions:
   contents: read
 
@@ -10,30 +8,15 @@ jobs:
   build-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '20'
-
       - name: Install dependencies
         run: |
-          if [ -f package-lock.json ]; then
-            echo "Found package-lock.json, using npm ci"
-            npm ci
-          elif [ -f yarn.lock ]; then
-            echo "Found yarn.lock, using yarn install"
-            yarn install --frozen-lockfile
-          elif [ -f pnpm-lock.yaml ]; then
-            echo "Found pnpm-lock.yaml, using pnpm install"
-            corepack enable
-            pnpm install --frozen-lockfile
-          else
-            echo "No lockfile found, using npm install"
-            npm install --no-audit --no-fund
-          fi
-
+          if [ -f package-lock.json ]; then npm ci
+          elif [ -f yarn.lock ]; then yarn install --frozen-lockfile
+          elif [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install --frozen-lockfile
+          else npm install --no-audit --no-fund; fi
       - name: Run tests
         run: npm test
