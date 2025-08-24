@@ -12,7 +12,13 @@ export enum ConnectionType {
    * OAuth 2.0 Client Credentials Flow using client ID and secret
    * Requires SALESFORCE_CLIENT_ID and SALESFORCE_CLIENT_SECRET
    */
-  OAuth_2_0_Client_Credentials = 'OAuth_2.0_Client_Credentials'
+  OAuth_2_0_Client_Credentials = 'OAuth_2.0_Client_Credentials',
+  
+  /**
+   * Salesforce CLI authentication using sf org display command
+   * Requires Salesforce CLI to be installed and an authenticated org
+   */
+  Salesforce_CLI = 'Salesforce_CLI'
 }
 
 /**
@@ -30,4 +36,22 @@ export interface ConnectionConfig {
    * @default 'https://login.salesforce.com'
    */
   loginUrl?: string;
+}
+
+/**
+ * Interface for Salesforce CLI org display response
+ */
+export interface SalesforceCLIResponse {
+  status: number;
+  result: {
+    id: string;
+    apiVersion: string;
+    accessToken: string;
+    instanceUrl: string;
+    username: string;
+    clientId: string;
+    connectedStatus: string;
+    alias?: string;
+  };
+  warnings?: string[];
 }
