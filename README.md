@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/tsmztech-mcp-server-salesforce-badge.png)](https://mseep.ai/app/tsmztech-mcp-server-salesforce)
+
 # Salesforce MCP Server
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/tsmztech/mcp-server-salesforce/badge)](https://securityscorecards.dev/viewer/?uri=github.com/tsmztech/mcp-server-salesforce)
 
