@@ -1,15 +1,11 @@
 #!/usr/bin/env node
 import express, { Request, Response } from "express";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js"
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import * as dotenv from "dotenv";
-import { randomUUID } from "crypto";
 import { createSalesforceConnection } from "./utils/connection.js";
 import { SEARCH_OBJECTS, handleSearchObjects } from "./tools/search.js";
 import { DESCRIBE_OBJECT, handleDescribeObject } from "./tools/describe.js";
@@ -42,25 +38,37 @@ const server = new Server(
   },
 );
 
+// Read only tools
+const READ_ONLY_TOOLS = [
+  SEARCH_OBJECTS,
+  DESCRIBE_OBJECT,
+  QUERY_RECORDS,
+  AGGREGATE_QUERY,
+  SEARCH_ALL,
+  EXECUTE_ANONYMOUS
+]
+
+const WRITE_TOOLS = [
+  DML_RECORDS,
+  MANAGE_OBJECT,
+  MANAGE_FIELD,
+  MANAGE_FIELD_PERMISSIONS,
+  MANAGE_DEBUG_LOGS,
+  WRITE_APEX,
+  READ_APEX_TRIGGER,
+  WRITE_APEX_TRIGGER,
+]
+
+const getTools = () => {
+  if (process.env.ENABLE_WRITE_TOOLS === 'true') {
+    return READ_ONLY_TOOLS.concat(WRITE_TOOLS);
+  }
+  return READ_ONLY_TOOLS;
+}
+
 // Tool handlers
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [
-    SEARCH_OBJECTS, 
-    DESCRIBE_OBJECT, 
-    QUERY_RECORDS, 
-    AGGREGATE_QUERY,
-    DML_RECORDS,
-    MANAGE_OBJECT,
-    MANAGE_FIELD,
-    MANAGE_FIELD_PERMISSIONS,
-    SEARCH_ALL,
-    READ_APEX,
-    WRITE_APEX,
-    READ_APEX_TRIGGER,
-    WRITE_APEX_TRIGGER,
-    EXECUTE_ANONYMOUS,
-    MANAGE_DEBUG_LOGS
-  ],
+  tools: getTools(),
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
