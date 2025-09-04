@@ -151,6 +151,40 @@ function validateWhereClause(whereClause: string | undefined): { isValid: boolea
   return { isValid: true };
 }
 
+// Helper function to enhance time-based WHERE clauses to be more inclusive
+function enhanceTimeBasedQuery(whereClause: string): string {
+  if (!whereClause) return whereClause;
+  
+  // Common time range patterns and their more inclusive alternatives
+  const timeEnhancements = [
+    {
+      pattern: /LAST_WEEK/gi,
+      replacement: `LAST_N_DAYS:10`
+    },
+    {
+      pattern: /THIS_WEEK/gi,
+      replacement: `THIS_WEEK OR TODAY`
+    },
+    {
+      pattern: /LAST_N_DAYS:7/gi,
+      replacement: `LAST_N_DAYS:10`
+    }
+  ];
+  
+  let enhancedClause = whereClause;
+  
+  timeEnhancements.forEach(enhancement => {
+    enhancedClause = enhancedClause.replace(enhancement.pattern, enhancement.replacement);
+  });
+  
+  if (enhancedClause !== whereClause) {
+    console.log(`[AGGREGATE_ENHANCEMENT] Original WHERE: ${whereClause}`);
+    console.log(`[AGGREGATE_ENHANCEMENT] Enhanced WHERE: ${enhancedClause}`);
+  }
+  
+  return enhancedClause;
+}
+
 // Helper function to validate ORDER BY fields
 function validateOrderBy(orderBy: string | undefined, groupByFields: string[], selectFields: string[]): { isValid: boolean; error?: string } {
   if (!orderBy) return { isValid: true };
@@ -217,15 +251,20 @@ export async function handleAggregateQuery(conn: any, args: AggregateQueryArgs) 
       };
     }
 
+    // Enhance time-based queries to be more inclusive
+    const enhancedWhereClause = whereClause ? enhanceTimeBasedQuery(whereClause) : whereClause;
+    
     // Construct SOQL query
     let soql = `SELECT ${selectFields.join(', ')} FROM ${objectName}`;
-    if (whereClause) soql += ` WHERE ${whereClause}`;
+    if (enhancedWhereClause) soql += ` WHERE ${enhancedWhereClause}`;
     soql += ` GROUP BY ${groupByFields.join(', ')}`;
     if (havingClause) soql += ` HAVING ${havingClause}`;
     if (orderBy) soql += ` ORDER BY ${orderBy}`;
     if (limit) soql += ` LIMIT ${limit}`;
 
+    console.log(`[AGGREGATE_SOQL] Executing query: ${soql}`);
     const result = await conn.query(soql);
+    console.log(`[AGGREGATE_SOQL] Query returned ${result.records.length} grouped records`);
     
     // Format the output
     const formattedRecords = result.records.map((record: any, index: number) => {

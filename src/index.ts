@@ -67,6 +67,34 @@ const getTools = () => {
   return READ_ONLY_TOOLS;
 }
 
+// Helper function to log tool responses
+function logToolResponse(toolName: string, result: any) {
+  console.log(`[MCP] Tool ${toolName} completed`);
+  console.log(`[MCP] Response type:`, result.isError ? 'ERROR' : 'SUCCESS');
+  
+  if (result.content && Array.isArray(result.content)) {
+    result.content.forEach((content: any, index: number) => {
+      if (content.type === 'text') {
+        const text = content.text;
+        const preview = text.length > 500 ? text.substring(0, 500) + '...[truncated]' : text;
+        console.log(`[MCP] Response content[${index}]:`, preview);
+        console.log(`[MCP] Full response length:`, text.length, 'characters');
+      }
+    });
+  }
+  
+  // Log the full response structure (but truncate long text)
+  const logResult = JSON.parse(JSON.stringify(result));
+  if (logResult.content) {
+    logResult.content.forEach((content: any) => {
+      if (content.type === 'text' && content.text.length > 200) {
+        content.text = content.text.substring(0, 200) + '...[truncated for logging]';
+      }
+    });
+  }
+  console.log(`[MCP] Full response structure:`, JSON.stringify(logResult, null, 2));
+}
+
 // Tool handlers
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: getTools(),
@@ -92,39 +120,47 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return await handleDescribeObject(conn, objectName);
       }
 
-      case "salesforce_query_records": {
-        const queryArgs = args as Record<string, unknown>;
-        if (!queryArgs.objectName || !Array.isArray(queryArgs.fields)) {
-          throw new Error('objectName and fields array are required for query');
-        }
-        // Type check and conversion
-        const validatedArgs: QueryArgs = {
-          objectName: queryArgs.objectName as string,
-          fields: queryArgs.fields as string[],
-          whereClause: queryArgs.whereClause as string | undefined,
-          orderBy: queryArgs.orderBy as string | undefined,
-          limit: queryArgs.limit as number | undefined
-        };
-        return await handleQueryRecords(conn, validatedArgs);
-      }
+                case "salesforce_query_records": {
+            const queryArgs = args as Record<string, unknown>;
+            if (!queryArgs.objectName || !Array.isArray(queryArgs.fields)) {
+              throw new Error('objectName and fields array are required for query');
+            }
+            // Type check and conversion
+            const validatedArgs: QueryArgs = {
+              objectName: queryArgs.objectName as string,
+              fields: queryArgs.fields as string[],
+              whereClause: queryArgs.whereClause as string | undefined,
+              orderBy: queryArgs.orderBy as string | undefined,
+              limit: queryArgs.limit as number | undefined
+            };
+            console.log(`[MCP] Executing SOQL query for ${validatedArgs.objectName}`);
+            console.log(`[MCP] WHERE clause:`, validatedArgs.whereClause || 'None');
+            const result = await handleQueryRecords(conn, validatedArgs);
+            logToolResponse(name, result);
+            return result;
+          }
 
-      case "salesforce_aggregate_query": {
-        const aggregateArgs = args as Record<string, unknown>;
-        if (!aggregateArgs.objectName || !Array.isArray(aggregateArgs.selectFields) || !Array.isArray(aggregateArgs.groupByFields)) {
-          throw new Error('objectName, selectFields array, and groupByFields array are required for aggregate query');
-        }
-        // Type check and conversion
-        const validatedArgs: AggregateQueryArgs = {
-          objectName: aggregateArgs.objectName as string,
-          selectFields: aggregateArgs.selectFields as string[],
-          groupByFields: aggregateArgs.groupByFields as string[],
-          whereClause: aggregateArgs.whereClause as string | undefined,
-          havingClause: aggregateArgs.havingClause as string | undefined,
-          orderBy: aggregateArgs.orderBy as string | undefined,
-          limit: aggregateArgs.limit as number | undefined
-        };
-        return await handleAggregateQuery(conn, validatedArgs);
-      }
+          case "salesforce_aggregate_query": {
+            const aggregateArgs = args as Record<string, unknown>;
+            if (!aggregateArgs.objectName || !Array.isArray(aggregateArgs.selectFields) || !Array.isArray(aggregateArgs.groupByFields)) {
+              throw new Error('objectName, selectFields array, and groupByFields array are required for aggregate query');
+            }
+            // Type check and conversion
+            const validatedArgs: AggregateQueryArgs = {
+              objectName: aggregateArgs.objectName as string,
+              selectFields: aggregateArgs.selectFields as string[],
+              groupByFields: aggregateArgs.groupByFields as string[],
+              whereClause: aggregateArgs.whereClause as string | undefined,
+              havingClause: aggregateArgs.havingClause as string | undefined,
+              orderBy: aggregateArgs.orderBy as string | undefined,
+              limit: aggregateArgs.limit as number | undefined
+            };
+            console.log(`[MCP] Executing aggregate query for ${validatedArgs.objectName}`);
+            console.log(`[MCP] WHERE clause:`, validatedArgs.whereClause || 'None');
+            const result = await handleAggregateQuery(conn, validatedArgs);
+            logToolResponse(name, result);
+            return result;
+          }
 
       case "salesforce_dml_records": {
         const dmlArgs = args as Record<string, unknown>;
@@ -386,6 +422,7 @@ app.post('/mcp', async (req: Request, res: Response) => {
         if (!args) throw new Error('Arguments are required');
 
         console.log(`[MCP] Processing tool: ${name}`);
+        console.log(`[MCP] Tool arguments:`, JSON.stringify(args, null, 2));
         const conn = await createSalesforceConnection();
         console.log(`[MCP] Salesforce connection established for tool: ${name}`);
 
@@ -393,13 +430,17 @@ app.post('/mcp', async (req: Request, res: Response) => {
           case "salesforce_search_objects": {
             const { searchPattern } = args as { searchPattern: string };
             if (!searchPattern) throw new Error('searchPattern is required');
-            return await handleSearchObjects(conn, searchPattern);
+            const result = await handleSearchObjects(conn, searchPattern);
+            logToolResponse(name, result);
+            return result;
           }
 
           case "salesforce_describe_object": {
             const { objectName } = args as { objectName: string };
             if (!objectName) throw new Error('objectName is required');
-            return await handleDescribeObject(conn, objectName);
+            const result = await handleDescribeObject(conn, objectName);
+            logToolResponse(name, result);
+            return result;
           }
 
           case "salesforce_query_records": {

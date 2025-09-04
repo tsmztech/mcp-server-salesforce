@@ -6,23 +6,34 @@ export const QUERY_RECORDS: Tool = {
 
 NOTE: For queries with GROUP BY, aggregate functions (COUNT, SUM, AVG, etc.), or HAVING clauses, use salesforce_aggregate_query instead.
 
+IMPORTANT: Time-based queries are automatically enhanced to be more inclusive:
+- "LAST_WEEK" becomes "LAST_N_DAYS:10" (includes more recent data)
+- "THIS_WEEK" becomes "THIS_WEEK OR TODAY" (ensures today is included)
+- Date ranges are expanded to include TODAY when querying recent data
+
+Recommended fields for common objects:
+- Opportunity: ["Id", "Name", "StageName", "Amount", "CloseDate", "CreatedDate", "LastModifiedDate", "Account.Name", "Owner.Name"]
+- Account: ["Id", "Name", "Industry", "Type", "CreatedDate", "LastModifiedDate", "Owner.Name"]
+- Contact: ["Id", "FirstName", "LastName", "Email", "Account.Name", "CreatedDate", "LastModifiedDate"]
+- Case: ["Id", "CaseNumber", "Subject", "Status", "Priority", "CreatedDate", "LastModifiedDate", "Account.Name", "Contact.Name"]
+
 Examples:
-1. Parent-to-child query (e.g., Account with Contacts):
+1. Recent Opportunities (automatically enhanced for broader results):
+   - objectName: "Opportunity"
+   - fields: ["Id", "Name", "StageName", "Amount", "CloseDate", "CreatedDate", "Account.Name"]
+   - whereClause: "CreatedDate = LAST_WEEK" (will be enhanced to LAST_N_DAYS:10)
+
+2. Parent-to-child query (e.g., Account with Contacts):
    - objectName: "Account"
    - fields: ["Name", "(SELECT Id, FirstName, LastName FROM Contacts)"]
 
-2. Child-to-parent query (e.g., Contact with Account details):
+3. Child-to-parent query (e.g., Contact with Account details):
    - objectName: "Contact"
    - fields: ["FirstName", "LastName", "Account.Name", "Account.Industry"]
 
-3. Multiple level query (e.g., Contact -> Account -> Owner):
+4. Multiple level query (e.g., Contact -> Account -> Owner):
    - objectName: "Contact"
    - fields: ["Name", "Account.Name", "Account.Owner.Name"]
-
-4. Related object filtering:
-   - objectName: "Contact"
-   - fields: ["Name", "Account.Name"]
-   - whereClause: "Account.Industry = 'Technology'"
 
 Note: When using relationship fields:
 - Use dot notation for parent relationships (e.g., "Account.Name")
@@ -102,6 +113,64 @@ function validateRelationshipFields(fields: string[]): { isValid: boolean; error
   return { isValid: true };
 }
 
+// Helper function to enhance time-based WHERE clauses to be more inclusive
+function enhanceTimeBasedQuery(whereClause: string): string {
+  if (!whereClause) return whereClause;
+  
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  // Common time range patterns and their more inclusive alternatives
+  const timeEnhancements = [
+    // "last week" should include today and be more generous
+    {
+      pattern: /LAST_WEEK/gi,
+      replacement: `LAST_N_DAYS:10` // More inclusive than just 7 days
+    },
+    // "this week" should definitely include today
+    {
+      pattern: /THIS_WEEK/gi,
+      replacement: `THIS_WEEK OR TODAY`
+    },
+    // "last 7 days" should be more inclusive
+    {
+      pattern: /LAST_N_DAYS:7/gi,
+      replacement: `LAST_N_DAYS:10`
+    },
+    // Add TODAY to any date range that might miss it
+    {
+      pattern: /CreatedDate\s*>=\s*(\d{4}-\d{2}-\d{2})/gi,
+      replacement: (match: string, dateStr: string) => {
+        const queryDate = new Date(dateStr);
+        const daysBetween = Math.floor((now.getTime() - queryDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysBetween <= 10) {
+          // If querying recent data, make sure to include today
+          return `(${match} OR CreatedDate = TODAY)`;
+        }
+        return match;
+      }
+    }
+  ];
+  
+  let enhancedClause = whereClause;
+  
+  timeEnhancements.forEach(enhancement => {
+    if (typeof enhancement.replacement === 'string') {
+      enhancedClause = enhancedClause.replace(enhancement.pattern, enhancement.replacement);
+    } else {
+      enhancedClause = enhancedClause.replace(enhancement.pattern, enhancement.replacement);
+    }
+  });
+  
+  // Log if we made any enhancements
+  if (enhancedClause !== whereClause) {
+    console.log(`[QUERY_ENHANCEMENT] Original WHERE: ${whereClause}`);
+    console.log(`[QUERY_ENHANCEMENT] Enhanced WHERE: ${enhancedClause}`);
+  }
+  
+  return enhancedClause;
+}
+
 // Helper function to format relationship query results
 function formatRelationshipResults(record: any, field: string, prefix = ''): string {
   if (field.includes('.')) {
@@ -137,13 +206,32 @@ export async function handleQueryRecords(conn: any, args: QueryArgs) {
       };
     }
 
+    // Enhance time-based queries to be more inclusive
+    const enhancedWhereClause = whereClause ? enhanceTimeBasedQuery(whereClause) : whereClause;
+    
+    // Apply smart defaults for better results
+    const smartLimit = limit || (enhancedWhereClause ? 200 : 100); // Higher limit for filtered queries
+    const smartOrderBy = orderBy || (fields.includes('CreatedDate') ? 'CreatedDate DESC' : 
+                                   fields.includes('LastModifiedDate') ? 'LastModifiedDate DESC' : 
+                                   orderBy);
+    
+    // Log smart enhancements
+    if (!limit) {
+      console.log(`[QUERY_ENHANCEMENT] Applied smart limit: ${smartLimit}`);
+    }
+    if (!orderBy && smartOrderBy) {
+      console.log(`[QUERY_ENHANCEMENT] Applied smart ordering: ${smartOrderBy}`);
+    }
+    
     // Construct SOQL query
     let soql = `SELECT ${fields.join(', ')} FROM ${objectName}`;
-    if (whereClause) soql += ` WHERE ${whereClause}`;
-    if (orderBy) soql += ` ORDER BY ${orderBy}`;
-    if (limit) soql += ` LIMIT ${limit}`;
+    if (enhancedWhereClause) soql += ` WHERE ${enhancedWhereClause}`;
+    if (smartOrderBy) soql += ` ORDER BY ${smartOrderBy}`;
+    soql += ` LIMIT ${smartLimit}`;
 
+    console.log(`[SOQL] Executing query: ${soql}`);
     const result = await conn.query(soql);
+    console.log(`[SOQL] Query returned ${result.records.length} records`);
     
     // Format the output
     const formattedRecords = result.records.map((record: any, index: number) => {
