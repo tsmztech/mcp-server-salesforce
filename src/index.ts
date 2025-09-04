@@ -69,30 +69,38 @@ const getTools = () => {
 
 // Helper function to log tool responses
 function logToolResponse(toolName: string, result: any) {
-  console.log(`[MCP] Tool ${toolName} completed`);
-  console.log(`[MCP] Response type:`, result.isError ? 'ERROR' : 'SUCCESS');
-  
-  if (result.content && Array.isArray(result.content)) {
-    result.content.forEach((content: any, index: number) => {
-      if (content.type === 'text') {
-        const text = content.text;
-        const preview = text.length > 500 ? text.substring(0, 500) + '...[truncated]' : text;
-        console.log(`[MCP] Response content[${index}]:`, preview);
-        console.log(`[MCP] Full response length:`, text.length, 'characters');
+  try {
+    console.log(`[MCP] Tool ${toolName} completed`);
+    console.log(`[MCP] Response type:`, result.isError ? 'ERROR' : 'SUCCESS');
+    
+    if (result.content && Array.isArray(result.content)) {
+      result.content.forEach((content: any, index: number) => {
+        if (content.type === 'text') {
+          const text = content.text;
+          const preview = text.length > 500 ? text.substring(0, 500) + '...[truncated]' : text;
+          console.log(`[MCP] Response content[${index}]:`, preview);
+          console.log(`[MCP] Full response length:`, text.length, 'characters');
+        }
+      });
+    }
+    
+    // Safely log response structure
+    try {
+      const logResult = JSON.parse(JSON.stringify(result));
+      if (logResult.content) {
+        logResult.content.forEach((content: any) => {
+          if (content.type === 'text' && content.text.length > 200) {
+            content.text = content.text.substring(0, 200) + '...[truncated for logging]';
+          }
+        });
       }
-    });
+      console.log(`[MCP] Response structure logged successfully`);
+    } catch (jsonError) {
+      console.log(`[MCP] Could not stringify response structure:`, jsonError instanceof Error ? jsonError.message : String(jsonError));
+    }
+  } catch (error) {
+    console.error(`[MCP] Error in logToolResponse:`, error instanceof Error ? error.message : String(error));
   }
-  
-  // Log the full response structure (but truncate long text)
-  const logResult = JSON.parse(JSON.stringify(result));
-  if (logResult.content) {
-    logResult.content.forEach((content: any) => {
-      if (content.type === 'text' && content.text.length > 200) {
-        content.text = content.text.substring(0, 200) + '...[truncated for logging]';
-      }
-    });
-  }
-  console.log(`[MCP] Full response structure:`, JSON.stringify(logResult, null, 2));
 }
 
 // Tool handlers
@@ -158,6 +166,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             console.log(`[MCP] Executing aggregate query for ${validatedArgs.objectName}`);
             console.log(`[MCP] WHERE clause:`, validatedArgs.whereClause || 'None');
             const result = await handleAggregateQuery(conn, validatedArgs);
+            console.log(`[MCP] Aggregate query completed successfully`);
             logToolResponse(name, result);
             return result;
           }
@@ -392,6 +401,9 @@ app.post('/mcp', async (req: Request, res: Response) => {
   // In stateless mode, create a new instance of transport for each request
   // to ensure complete isolation. A single instance would cause request ID collisions
   // when multiple clients connect concurrently.
+  
+  const requestId = Math.random().toString(36).substring(7);
+  console.log(`[HTTP] Received MCP request ${requestId}`);
   
   try {
     const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
@@ -690,13 +702,14 @@ app.post('/mcp', async (req: Request, res: Response) => {
     });
     
     res.on('close', () => {
-      console.log('Request closed');
+      console.log(`[HTTP] Request ${requestId} closed`);
       transport.close();
       // Don't close the main server - only close the transport
     });
     
     await requestServer.connect(transport);
     await transport.handleRequest(req, res, req.body);
+    console.log(`[HTTP] Request ${requestId} completed successfully`);
   } catch (error) {
     console.error('Error handling MCP request:', error);
     if (!res.headersSent) {
