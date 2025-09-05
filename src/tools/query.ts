@@ -13,9 +13,15 @@ IMPORTANT: Time-based queries are automatically enhanced to be more inclusive:
 
 Recommended fields for common objects:
 - Opportunity: ["Id", "Name", "StageName", "Amount", "CloseDate", "CreatedDate", "LastModifiedDate", "Account.Name", "Owner.Name"]
-- Account: ["Id", "Name", "Industry", "Type", "CreatedDate", "LastModifiedDate", "Owner.Name"]
+- Account: ["Id", "Name", "Industry", "Type", "CreatedDate", "LastModifiedDate", "Owner.Name"]  
 - Contact: ["Id", "FirstName", "LastName", "Email", "Account.Name", "CreatedDate", "LastModifiedDate"]
 - Case: ["Id", "CaseNumber", "Subject", "Status", "Priority", "CreatedDate", "LastModifiedDate", "Account.Name", "Contact.Name"]
+
+⚠️  IMPORTANT: If Account.Industry or custom fields like Account.Account_Tier__c return null:
+1. The field might not exist in your Salesforce org
+2. The field might be empty/not populated for those records  
+3. You might not have access permissions to that field
+4. Use salesforce_describe_object to verify field names and availability
 
 Examples:
 1. Recent Opportunities (automatically enhanced for broader results):
@@ -194,6 +200,9 @@ export async function handleQueryRecords(conn: any, args: QueryArgs) {
   const { objectName, fields, whereClause, orderBy, limit } = args;
 
   try {
+    // Log the fields being requested for debugging
+    console.log(`[QUERY_FIELDS] Requested fields for ${objectName}:`, fields);
+    
     // Validate relationship field syntax
     const validation = validateRelationshipFields(fields);
     if (!validation.isValid) {
@@ -260,25 +269,46 @@ export async function handleQueryRecords(conn: any, args: QueryArgs) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     let enhancedError = errorMessage;
 
-    if (errorMessage.includes('INVALID_FIELD')) {
-      // Try to identify which relationship field caused the error
-      const fieldMatch = errorMessage.match(/(?:No such column |Invalid field: )['"]?([^'")\s]+)/);
+    console.log(`[QUERY_ERROR] Original error:`, errorMessage);
+
+    if (errorMessage.includes('INVALID_FIELD') || errorMessage.includes('No such column')) {
+      // Try to identify which field caused the error
+      const fieldMatch = errorMessage.match(/(?:No such column |Invalid field: )['"]?([^'")\s,]+)/);
       if (fieldMatch) {
         const invalidField = fieldMatch[1];
+        console.log(`[QUERY_ERROR] Invalid field identified:`, invalidField);
+        
         if (invalidField.includes('.')) {
-          enhancedError = `Invalid relationship field "${invalidField}". Please check:\n` +
-            `1. The relationship name is correct\n` +
-            `2. The field exists on the related object\n` +
-            `3. You have access to the field\n` +
-            `4. For custom relationships, ensure you're using '__r' suffix`;
+          enhancedError = `❌ Invalid relationship field "${invalidField}"\n\n` +
+            `Troubleshooting steps:\n` +
+            `1. Check if the relationship name is correct (e.g., "Account" not "account")\n` +
+            `2. Verify the field exists on the related object\n` +
+            `3. Ensure you have access permissions to the field\n` +
+            `4. For custom relationships, use '__r' suffix (e.g., "Custom_Object__r.Name")\n\n` +
+            `💡 Try using salesforce_describe_object on "${objectName}" to see available relationship fields.`;
+        } else {
+          enhancedError = `❌ Invalid field "${invalidField}" on ${objectName} object\n\n` +
+            `Troubleshooting steps:\n` +
+            `1. Check field name spelling and capitalization\n` +
+            `2. Verify the field exists on the ${objectName} object\n` +
+            `3. Ensure you have access permissions to the field\n` +
+            `4. For custom fields, ensure '__c' suffix is included\n\n` +
+            `💡 Try using salesforce_describe_object on "${objectName}" to see all available fields.`;
         }
       }
+    } else if (errorMessage.includes('MALFORMED_QUERY')) {
+      enhancedError = `❌ Malformed SOQL query\n\n` +
+        `The query syntax is invalid. Common issues:\n` +
+        `1. Missing quotes around string values in WHERE clause\n` +
+        `2. Invalid date format (use YYYY-MM-DD or Salesforce date literals)\n` +
+        `3. Incorrect aggregate function usage\n\n` +
+        `💡 Check the SOQL syntax and try again.`;
     }
 
     return {
       content: [{
         type: "text",
-        text: `Error executing query: ${enhancedError}`
+        text: `Error executing query: ${enhancedError}\n\n🔍 Query attempted: SELECT ${fields.join(', ')} FROM ${objectName}${whereClause ? ` WHERE ${whereClause}` : ''}`
       }],
       isError: true,
     };

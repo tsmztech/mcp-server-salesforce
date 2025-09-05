@@ -77,7 +77,10 @@ function logToolResponse(toolName: string, result: any) {
       result.content.forEach((content: any, index: number) => {
         if (content.type === 'text') {
           const text = content.text;
-          const preview = text.length > 500 ? text.substring(0, 500) + '...[truncated]' : text;
+          // Show more content for schema/describe responses, less for data queries
+          const isSchemaResponse = text.includes('Object:') && text.includes('Fields:');
+          const previewLength = isSchemaResponse ? 2000 : 800;
+          const preview = text.length > previewLength ? text.substring(0, previewLength) + '...[truncated]' : text;
           console.log(`[MCP] Response content[${index}]:`, preview);
           console.log(`[MCP] Full response length:`, text.length, 'characters');
         }
