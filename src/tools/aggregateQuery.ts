@@ -6,6 +6,12 @@ export const AGGREGATE_QUERY: Tool = {
 
 NOTE: For regular queries without GROUP BY or aggregates, use salesforce_query_records instead.
 
+🚨 CRITICAL DATE FIELD USAGE:
+- For NEW pipeline analysis: Use CreatedDate (when opportunities were added)
+- For CLOSING pipeline analysis: Use CloseDate (when opportunities are expected to close)
+- For "pipeline added this week" → CreatedDate = THIS_WEEK
+- For "deals closing this week" → CloseDate = THIS_WEEK
+
 This tool handles:
 1. GROUP BY queries (single/multiple fields, related objects, date functions)
 2. Aggregate functions: COUNT(), COUNT_DISTINCT(), SUM(), AVG(), MIN(), MAX()
@@ -214,6 +220,20 @@ export async function handleAggregateQuery(conn: any, args: AggregateQueryArgs) 
   const { objectName, selectFields, groupByFields, whereClause, havingClause, orderBy, limit } = args;
 
   try {
+    // Analyze the WHERE clause for potential issues
+    if (whereClause) {
+      console.log(`[AGGREGATE_ANALYSIS] WHERE clause analysis:`);
+      
+      // Check for common date field confusion
+      if (whereClause.includes('CloseDate') && objectName === 'Opportunity') {
+        const hasRecentDateFilter = whereClause.includes('2025-09') || whereClause.includes('THIS_WEEK') || whereClause.includes('LAST_WEEK');
+        if (hasRecentDateFilter) {
+          console.log(`[AGGREGATE_WARNING] ⚠️  Using CloseDate for recent opportunities may miss new pipeline!`);
+          console.log(`[AGGREGATE_WARNING] 💡 Consider using CreatedDate instead to find opportunities added recently`);
+          console.log(`[AGGREGATE_WARNING] 📅 CloseDate = when deal closes, CreatedDate = when opportunity was added`);
+        }
+      }
+    }
     // Validate GROUP BY contains all non-aggregate fields
     const groupByValidation = validateGroupByFields(selectFields, groupByFields);
     if (!groupByValidation.isValid) {

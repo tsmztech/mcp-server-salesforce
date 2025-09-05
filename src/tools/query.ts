@@ -24,20 +24,27 @@ Recommended fields for common objects:
 4. Use salesforce_describe_object to verify field names and availability
 
 Examples:
-1. Recent Opportunities (automatically enhanced for broader results):
+1. NEW Pipeline Opportunities (added recently):
    - objectName: "Opportunity"
    - fields: ["Id", "Name", "StageName", "Amount", "CloseDate", "CreatedDate", "Account.Name"]
-   - whereClause: "CreatedDate = LAST_WEEK" (will be enhanced to LAST_N_DAYS:10)
+   - whereClause: "CreatedDate = LAST_WEEK" (finds opportunities ADDED this week)
 
-2. Parent-to-child query (e.g., Account with Contacts):
+2. CLOSING Opportunities (expected to close soon):
+   - objectName: "Opportunity"  
+   - fields: ["Id", "Name", "StageName", "Amount", "CloseDate", "CreatedDate", "Account.Name"]
+   - whereClause: "CloseDate = LAST_WEEK" (finds opportunities CLOSING this week)
+
+🚨 CRITICAL: For "new pipeline" or "pipeline added", use CreatedDate NOT CloseDate!
+
+3. Parent-to-child query (e.g., Account with Contacts):
    - objectName: "Account"
    - fields: ["Name", "(SELECT Id, FirstName, LastName FROM Contacts)"]
 
-3. Child-to-parent query (e.g., Contact with Account details):
+4. Child-to-parent query (e.g., Contact with Account details):
    - objectName: "Contact"
    - fields: ["FirstName", "LastName", "Account.Name", "Account.Industry"]
 
-4. Multiple level query (e.g., Contact -> Account -> Owner):
+5. Multiple level query (e.g., Contact -> Account -> Owner):
    - objectName: "Contact"
    - fields: ["Name", "Account.Name", "Account.Owner.Name"]
 
@@ -202,6 +209,27 @@ export async function handleQueryRecords(conn: any, args: QueryArgs) {
   try {
     // Log the fields being requested for debugging
     console.log(`[QUERY_FIELDS] Requested fields for ${objectName}:`, fields);
+    
+    // Analyze the WHERE clause for potential issues
+    if (whereClause) {
+      console.log(`[QUERY_ANALYSIS] WHERE clause analysis:`);
+      
+      // Check for common date field confusion
+      if (whereClause.includes('CloseDate') && objectName === 'Opportunity') {
+        const hasRecentDateFilter = whereClause.includes('2025-09') || whereClause.includes('THIS_WEEK') || whereClause.includes('LAST_WEEK');
+        if (hasRecentDateFilter) {
+          console.log(`[QUERY_WARNING] ⚠️  Using CloseDate for recent opportunities may miss new pipeline!`);
+          console.log(`[QUERY_WARNING] 💡 Consider using CreatedDate instead to find opportunities added recently`);
+          console.log(`[QUERY_WARNING] 📅 CloseDate = when deal closes, CreatedDate = when opportunity was added`);
+        }
+      }
+      
+      // Check for missing CreatedDate in fields when filtering by time
+      const hasTimeFilter = whereClause.includes('Date') || whereClause.includes('WEEK') || whereClause.includes('DAY');
+      if (hasTimeFilter && !fields.includes('CreatedDate') && !fields.includes('LastModifiedDate')) {
+        console.log(`[QUERY_SUGGESTION] 💡 Consider adding 'CreatedDate' or 'LastModifiedDate' to fields for better context`);
+      }
+    }
     
     // Validate relationship field syntax
     const validation = validateRelationshipFields(fields);
