@@ -67,44 +67,6 @@ const getTools = () => {
   return READ_ONLY_TOOLS;
 }
 
-// Helper function to log tool responses
-function logToolResponse(toolName: string, result: any) {
-  try {
-    console.log(`[MCP] Tool ${toolName} completed`);
-    console.log(`[MCP] Response type:`, result.isError ? 'ERROR' : 'SUCCESS');
-    
-    if (result.content && Array.isArray(result.content)) {
-      result.content.forEach((content: any, index: number) => {
-        if (content.type === 'text') {
-          const text = content.text;
-          // Show more content for schema/describe responses, less for data queries
-          const isSchemaResponse = text.includes('Object:') && text.includes('Fields:');
-          const previewLength = isSchemaResponse ? 2000 : 800;
-          const preview = text.length > previewLength ? text.substring(0, previewLength) + '...[truncated]' : text;
-          console.log(`[MCP] Response content[${index}]:`, preview);
-          console.log(`[MCP] Full response length:`, text.length, 'characters');
-        }
-      });
-    }
-    
-    // Safely log response structure
-    try {
-      const logResult = JSON.parse(JSON.stringify(result));
-      if (logResult.content) {
-        logResult.content.forEach((content: any) => {
-          if (content.type === 'text' && content.text.length > 200) {
-            content.text = content.text.substring(0, 200) + '...[truncated for logging]';
-          }
-        });
-      }
-      console.log(`[MCP] Response structure logged successfully`);
-    } catch (jsonError) {
-      console.log(`[MCP] Could not stringify response structure:`, jsonError instanceof Error ? jsonError.message : String(jsonError));
-    }
-  } catch (error) {
-    console.error(`[MCP] Error in logToolResponse:`, error instanceof Error ? error.message : String(error));
-  }
-}
 
 // Tool handlers
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -147,7 +109,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             console.log(`[MCP] Executing SOQL query for ${validatedArgs.objectName}`);
             console.log(`[MCP] WHERE clause:`, validatedArgs.whereClause || 'None');
             const result = await handleQueryRecords(conn, validatedArgs);
-            logToolResponse(name, result);
             return result;
           }
 
@@ -170,7 +131,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             console.log(`[MCP] WHERE clause:`, validatedArgs.whereClause || 'None');
             const result = await handleAggregateQuery(conn, validatedArgs);
             console.log(`[MCP] Aggregate query completed successfully`);
-            logToolResponse(name, result);
             return result;
           }
 
@@ -446,7 +406,6 @@ app.post('/mcp', async (req: Request, res: Response) => {
             const { searchPattern } = args as { searchPattern: string };
             if (!searchPattern) throw new Error('searchPattern is required');
             const result = await handleSearchObjects(conn, searchPattern);
-            logToolResponse(name, result);
             return result;
           }
 
@@ -454,7 +413,6 @@ app.post('/mcp', async (req: Request, res: Response) => {
             const { objectName } = args as { objectName: string };
             if (!objectName) throw new Error('objectName is required');
             const result = await handleDescribeObject(conn, objectName);
-            logToolResponse(name, result);
             return result;
           }
 
