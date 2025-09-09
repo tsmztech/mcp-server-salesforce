@@ -9,7 +9,6 @@ const execAsync = promisify(exec);
 
 /**
  * Executes the Salesforce CLI command to get org information
- * @param projectPath Optional path to the Salesforce project root
  * @returns Parsed response from sf org display --json command
  */
 async function getSalesforceOrgInfo(): Promise<SalesforceCLIResponse> {
@@ -39,7 +38,6 @@ async function getSalesforceOrgInfo(): Promise<SalesforceCLIResponse> {
     if (stderr) {
       console.warn('[Salesforce CLI] STDERR:', stderr);
     }
-
     // Try to parse stdout as JSON
     let response: SalesforceCLIResponse;
     try {
