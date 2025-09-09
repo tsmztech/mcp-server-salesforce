@@ -14,7 +14,8 @@
     "scripts": {
       "build": "tsc && shx chmod +x dist/*.js",
       "prepare": "npm run build",
-      "watch": "tsc --watch"
+      "watch": "tsc --watch",
+      "test": "node --test"
     },
     "keywords": [
       "mcp",
@@ -25,14 +26,14 @@
     "author": "tsmztech",
     "license": "MIT",
     "dependencies": {
-      "@modelcontextprotocol/sdk": "0.5.0",
-      "dotenv": "^16.3.1",
-      "jsforce": "^1.11.0"
+      "@modelcontextprotocol/sdk": "1.17.4",
+      "dotenv": "^17.2.1",
+      "jsforce": "^3.10.3"
     },
     "devDependencies": {
-      "@types/node": "^22.10.1",
+      "@types/node": "^24.3.0",
       "typescript": "^5.7.2",
-      "shx": "^0.3.4"
+      "shx": "^0.4.0"
     }
   }
   
