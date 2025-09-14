@@ -13,16 +13,21 @@ const execAsync = promisify(exec);
  */
 async function getSalesforceOrgInfo(): Promise<SalesforceCLIResponse> {
   try {
+    // SECURITY: Use hardcoded command to prevent injection
     const command = 'sf org display --json';
     const cwdLog = process.cwd();
-    console.log(`Executing Salesforce CLI command: ${command} in directory: ${cwdLog}`);
+    
+    // Validate that we're executing only the expected command
+    if (command !== 'sf org display --json') {
+      throw new Error('Invalid command: Only sf org display --json is allowed');
+    }
 
     // Use execAsync and handle both success and error cases
     let stdout = '';
     let stderr = '';
     let error: Error | { stdout?: string; stderr?: string } | null = null;
     try {
-      const result = await execAsync(command);
+      const result = await execAsync(command, { timeout: 10000 }); // 10 second timeout
       stdout = result.stdout;
       stderr = result.stderr;
     } catch (err: any) {

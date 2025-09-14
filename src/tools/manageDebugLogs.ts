@@ -1,5 +1,6 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { Connection } from "jsforce";
+import { escapeSoqlString, validateInputLength, MAX_FIELD_LENGTH } from "../utils/soqlSanitizer.js";
 
 export const MANAGE_DEBUG_LOGS: Tool = {
   name: "salesforce_manage_debug_logs",
@@ -102,10 +103,13 @@ export interface ManageDebugLogsArgs {
  */
 export async function handleManageDebugLogs(conn: any, args: ManageDebugLogsArgs) {
   try {
-    // Validate inputs
+    // SECURITY: Validate and sanitize inputs
     if (!args.username) {
       throw new Error('username is required');
     }
+    
+    // Validate input length
+    validateInputLength(args.username, MAX_FIELD_LENGTH, 'username');
     
     // Determine if the input is likely a username or a full name
     const isLikelyUsername = args.username.includes('@') || !args.username.includes(' ');
@@ -117,14 +121,14 @@ export async function handleManageDebugLogs(conn: any, args: ManageDebugLogsArgs
       userQuery = await conn.query(`
         SELECT Id, Username, Name, IsActive 
         FROM User 
-        WHERE Username = '${args.username}'
+        WHERE Username = '${escapeSoqlString(args.username)}'
       `);
     } else {
       // Query by full name
       userQuery = await conn.query(`
         SELECT Id, Username, Name, IsActive 
         FROM User 
-        WHERE Name LIKE '%${args.username}%'
+        WHERE Name LIKE '%${escapeSoqlString(args.username)}%'
         ORDER BY LastModifiedDate DESC
         LIMIT 5
       `);
@@ -135,8 +139,8 @@ export async function handleManageDebugLogs(conn: any, args: ManageDebugLogsArgs
       userQuery = await conn.query(`
         SELECT Id, Username, Name, IsActive 
         FROM User 
-        WHERE Name LIKE '%${args.username}%' 
-        OR Username LIKE '%${args.username}%'
+        WHERE Name LIKE '%${escapeSoqlString(args.username)}%' 
+        OR Username LIKE '%${escapeSoqlString(args.username)}%'
         ORDER BY LastModifiedDate DESC
         LIMIT 5
       `);
@@ -199,7 +203,7 @@ export async function handleManageDebugLogs(conn: any, args: ManageDebugLogsArgs
         // Check if a trace flag already exists for this user
         const existingTraceFlag = await conn.tooling.query(`
           SELECT Id, DebugLevelId FROM TraceFlag 
-          WHERE TracedEntityId = '${user.Id}' 
+          WHERE TracedEntityId = '${escapeSoqlString(user.Id)}' 
           AND ExpirationDate > ${new Date().toISOString()}
         `);
         
@@ -267,7 +271,7 @@ export async function handleManageDebugLogs(conn: any, args: ManageDebugLogsArgs
       case 'disable': {
         // Find all active trace flags for this user
         const traceFlags = await conn.tooling.query(`
-          SELECT Id FROM TraceFlag WHERE TracedEntityId = '${user.Id}' AND ExpirationDate > ${new Date().toISOString()}
+          SELECT Id FROM TraceFlag WHERE TracedEntityId = '${escapeSoqlString(user.Id)}' AND ExpirationDate > ${new Date().toISOString()}
         `);
         
         if (traceFlags.records.length === 0) {
@@ -337,7 +341,7 @@ export async function handleManageDebugLogs(conn: any, args: ManageDebugLogsArgs
             const logQuery = await conn.tooling.query(`
               SELECT Id, LogUserId, Operation, Application, Status, LogLength, LastModifiedDate, Request
               FROM ApexLog 
-              WHERE Id = '${args.logId}'
+              WHERE Id = '${escapeSoqlString(args.logId)}'
             `);
             
             if (logQuery.records.length === 0) {
@@ -419,7 +423,7 @@ export async function handleManageDebugLogs(conn: any, args: ManageDebugLogsArgs
         const logs = await conn.tooling.query(`
           SELECT Id, LogUserId, Operation, Application, Status, LogLength, LastModifiedDate, Request
           FROM ApexLog 
-          WHERE LogUserId = '${user.Id}'
+          WHERE LogUserId = '${escapeSoqlString(user.Id)}'
           ORDER BY LastModifiedDate DESC 
           LIMIT ${limit}
         `);

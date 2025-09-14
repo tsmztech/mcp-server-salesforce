@@ -1,5 +1,6 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { Connection } from "jsforce";
+import { validateInputLength } from "../utils/soqlSanitizer.js";
 
 export const EXECUTE_ANONYMOUS: Tool = {
   name: "salesforce_execute_anonymous",
@@ -61,9 +62,20 @@ export interface ExecuteAnonymousArgs {
  */
 export async function handleExecuteAnonymous(conn: any, args: ExecuteAnonymousArgs) {
   try {
-    // Validate inputs
+    // SECURITY: Validate and sanitize inputs while preserving flexibility
     if (!args.apexCode || args.apexCode.trim() === '') {
       throw new Error('apexCode is required and cannot be empty');
+    }
+    
+    // Validate input length (1MB max for Apex code)
+    validateInputLength(args.apexCode, 1000000, 'apexCode');
+    
+    // Validate logLevel if provided
+    if (args.logLevel) {
+      const validLogLevels = ['NONE', 'ERROR', 'WARN', 'INFO', 'DEBUG', 'FINE', 'FINER', 'FINEST'];
+      if (!validLogLevels.includes(args.logLevel)) {
+        throw new Error(`Invalid logLevel: ${args.logLevel}. Must be one of: ${validLogLevels.join(', ')}`);
+      }
     }
     
     console.error(`Executing anonymous Apex code`);

@@ -15,7 +15,7 @@
         "build": "tsc && shx chmod +x dist/*.js",
         "prepare": "npm run build",
         "watch": "tsc --watch",
-        "test": "tsx --test test/**/*.test.js"
+        "test": "tsx --test test/**/*.test.ts"
     },
     "keywords": [
         "mcp",

@@ -1,4 +1,5 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { escapeSoqlString, validateInputLength, MAX_FIELD_LENGTH } from "../utils/soqlSanitizer.js";
 
 export const MANAGE_FIELD_PERMISSIONS: Tool = {
   name: "salesforce_manage_field_permissions",
@@ -118,11 +119,12 @@ export async function handleManageFieldPermissions(conn: any, args: ManageFieldP
       profileNames = ['System Administrator'];
     }
 
-    // Get profile IDs
+    // Get profile IDs using safe query construction
+    const safeProfileNames = profileNames.map(name => `'${escapeSoqlString(name)}'`).join(', ');
     const profileQuery = await conn.query(`
       SELECT Id, Name 
       FROM Profile 
-      WHERE Name IN (${profileNames.map(name => `'${name}'`).join(', ')})
+      WHERE Name IN (${safeProfileNames})
     `);
 
     if (profileQuery.records.length === 0) {
