@@ -1,4 +1,5 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { escapeSoqlString, validateInputLength, MAX_FIELD_LENGTH } from "../utils/soqlSanitizer.js";
 
 export const WRITE_APEX_TRIGGER: Tool = {
   name: "salesforce_write_apex_trigger",
@@ -105,9 +106,9 @@ export async function handleWriteApexTrigger(conn: any, args: WriteApexTriggerAr
         throw new Error(`The object name in the body must match the provided objectName: ${args.objectName}`);
       }
       
-      // Check if trigger already exists
+      // Check if trigger already exists using safe query
       const existingTrigger = await conn.query(`
-        SELECT Id FROM ApexTrigger WHERE Name = '${args.triggerName}'
+        SELECT Id FROM ApexTrigger WHERE Name = '${escapeSoqlString(args.triggerName)}'
       `);
       
       if (existingTrigger.records.length > 0) {
@@ -142,9 +143,9 @@ export async function handleWriteApexTrigger(conn: any, args: WriteApexTriggerAr
     else if (args.operation === 'update') {
       console.error(`Updating Apex trigger: ${args.triggerName}`);
       
-      // Find the existing trigger
+      // Find the existing trigger using safe query
       const existingTrigger = await conn.query(`
-        SELECT Id, TableEnumOrId FROM ApexTrigger WHERE Name = '${args.triggerName}'
+        SELECT Id, TableEnumOrId FROM ApexTrigger WHERE Name = '${escapeSoqlString(args.triggerName)}'
       `);
       
       if (existingTrigger.records.length === 0) {
@@ -170,11 +171,11 @@ export async function handleWriteApexTrigger(conn: any, args: WriteApexTriggerAr
         throw new Error(`Failed to update Apex trigger: ${updateResult.errors.join(', ')}`);
       }
       
-      // Get the updated trigger details
+      // Get the updated trigger details using safe query
       const updatedTrigger = await conn.query(`
         SELECT Id, Name, TableEnumOrId, ApiVersion, Status, LastModifiedDate
         FROM ApexTrigger
-        WHERE Id = '${triggerId}'
+        WHERE Id = '${escapeSoqlString(triggerId)}'
       `);
       
       const triggerDetails = updatedTrigger.records[0];

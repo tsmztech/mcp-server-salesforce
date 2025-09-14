@@ -1,4 +1,11 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { 
+  validateObjectName, 
+  validateFieldName, 
+  sanitizeWhereClause, 
+  validateLimit, 
+  MAX_WHERE_LENGTH 
+} from "../utils/soqlSanitizer.js";
 
 export const AGGREGATE_QUERY: Tool = {
   name: "salesforce_aggregate_query",
@@ -180,8 +187,19 @@ export async function handleAggregateQuery(conn: any, args: AggregateQueryArgs) 
   const { objectName, selectFields, groupByFields, whereClause, havingClause, orderBy, limit } = args;
 
   try {
+    // SECURITY: Validate and sanitize all inputs to prevent SOQL injection
+    
+    // Validate object name
+    const safeObjectName = validateObjectName(objectName);
+    
+    // Validate select field names
+    const safeSelectFields = selectFields.map(field => validateFieldName(field));
+    
+    // Validate GROUP BY field names
+    const safeGroupByFields = groupByFields.map(field => validateFieldName(field));
+    
     // Validate GROUP BY contains all non-aggregate fields
-    const groupByValidation = validateGroupByFields(selectFields, groupByFields);
+    const groupByValidation = validateGroupByFields(safeSelectFields, safeGroupByFields);
     if (!groupByValidation.isValid) {
       return {
         content: [{
@@ -193,43 +211,95 @@ export async function handleAggregateQuery(conn: any, args: AggregateQueryArgs) 
       };
     }
 
-    // Validate WHERE clause doesn't contain aggregates
-    const whereValidation = validateWhereClause(whereClause);
-    if (!whereValidation.isValid) {
-      return {
-        content: [{
-          type: "text",
-          text: whereValidation.error!
-        }],
-        isError: true,
-      };
+    // Sanitize WHERE clause if provided
+    let safeWhereClause = '';
+    if (whereClause) {
+      if (whereClause.length > MAX_WHERE_LENGTH) {
+        return {
+          content: [{
+            type: "text",
+            text: `WHERE clause exceeds maximum length of ${MAX_WHERE_LENGTH} characters`
+          }],
+          isError: true,
+        };
+      }
+      safeWhereClause = sanitizeWhereClause(whereClause);
+      
+      // Validate WHERE clause doesn't contain aggregates (existing validation)
+      const whereValidation = validateWhereClause(whereClause);
+      if (!whereValidation.isValid) {
+        return {
+          content: [{
+            type: "text",
+            text: whereValidation.error!
+          }],
+          isError: true,
+        };
+      }
+    }
+    
+    // Sanitize HAVING clause if provided
+    let safeHavingClause = '';
+    if (havingClause) {
+      if (havingClause.length > MAX_WHERE_LENGTH) {
+        return {
+          content: [{
+            type: "text",
+            text: `HAVING clause exceeds maximum length of ${MAX_WHERE_LENGTH} characters`
+          }],
+          isError: true,
+        };
+      }
+      // HAVING clauses can contain aggregates, so we use basic sanitization
+      safeHavingClause = sanitizeWhereClause(havingClause);
+    }
+    
+    // Validate ORDER BY clause
+    let safeOrderBy = '';
+    if (orderBy) {
+      const orderByValidation = validateOrderBy(orderBy, safeGroupByFields, safeSelectFields);
+      if (!orderByValidation.isValid) {
+        return {
+          content: [{
+            type: "text",
+            text: orderByValidation.error!
+          }],
+          isError: true,
+        };
+      }
+      // Basic validation for ORDER BY format
+      const orderByPattern = /^[a-zA-Z_][a-zA-Z0-9_\(\)\.]*(\s+(ASC|DESC))?(\s*,\s*[a-zA-Z_][a-zA-Z0-9_\(\)\.]*(\s+(ASC|DESC))?)*$/i;
+      if (!orderByPattern.test(orderBy.trim())) {
+        return {
+          content: [{
+            type: "text",
+            text: "Invalid ORDER BY clause format"
+          }],
+          isError: true,
+        };
+      }
+      safeOrderBy = orderBy.trim();
+    }
+    
+    // Validate LIMIT if provided
+    let safeLimit: number | undefined;
+    if (limit !== undefined) {
+      safeLimit = validateLimit(limit);
     }
 
-    // Validate ORDER BY fields
-    const orderByValidation = validateOrderBy(orderBy, groupByFields, selectFields);
-    if (!orderByValidation.isValid) {
-      return {
-        content: [{
-          type: "text",
-          text: orderByValidation.error!
-        }],
-        isError: true,
-      };
-    }
-
-    // Construct SOQL query
-    let soql = `SELECT ${selectFields.join(', ')} FROM ${objectName}`;
-    if (whereClause) soql += ` WHERE ${whereClause}`;
-    soql += ` GROUP BY ${groupByFields.join(', ')}`;
-    if (havingClause) soql += ` HAVING ${havingClause}`;
-    if (orderBy) soql += ` ORDER BY ${orderBy}`;
-    if (limit) soql += ` LIMIT ${limit}`;
+    // Construct secure SOQL query using sanitized inputs
+    let soql = `SELECT ${safeSelectFields.join(', ')} FROM ${safeObjectName}`;
+    if (safeWhereClause) soql += ` WHERE ${safeWhereClause}`;
+    soql += ` GROUP BY ${safeGroupByFields.join(', ')}`;
+    if (safeHavingClause) soql += ` HAVING ${safeHavingClause}`;
+    if (safeOrderBy) soql += ` ORDER BY ${safeOrderBy}`;
+    if (safeLimit) soql += ` LIMIT ${safeLimit}`;
 
     const result = await conn.query(soql);
     
     // Format the output
     const formattedRecords = result.records.map((record: any, index: number) => {
-      const recordStr = selectFields.map(field => {
+      const recordStr = safeSelectFields.map(field => {
         const baseField = extractBaseField(field);
         const fieldParts = field.trim().split(/\s+/);
         const displayName = fieldParts.length > 1 ? fieldParts[fieldParts.length - 1] : baseField;

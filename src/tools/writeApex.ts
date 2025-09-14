@@ -1,5 +1,6 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { Connection } from "jsforce";
+import { escapeSoqlString, validateInputLength, MAX_FIELD_LENGTH } from "../utils/soqlSanitizer.js";
 
 export const WRITE_APEX: Tool = {
   name: "salesforce_write_apex",
@@ -69,13 +70,23 @@ export interface WriteApexArgs {
  */
 export async function handleWriteApex(conn: any, args: WriteApexArgs) {
   try {
-    // Validate inputs
+    // SECURITY: Validate and sanitize inputs
     if (!args.className) {
       throw new Error('className is required');
     }
     
     if (!args.body) {
       throw new Error('body is required');
+    }
+    
+    // Validate input lengths
+    validateInputLength(args.className, MAX_FIELD_LENGTH, 'className');
+    validateInputLength(args.body, 1000000, 'body'); // 1MB max for Apex code
+    
+    // Validate className format (alphanumeric and underscores only)
+    const classNamePattern = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+    if (!classNamePattern.test(args.className)) {
+      throw new Error('Invalid className format. Must contain only alphanumeric characters and underscores.');
     }
     
     // Check if the class name in the body matches the provided className
@@ -86,11 +97,9 @@ export async function handleWriteApex(conn: any, args: WriteApexArgs) {
     
     // Handle create operation
     if (args.operation === 'create') {
-      console.error(`Creating new Apex class: ${args.className}`);
-      
-      // Check if class already exists
+      // Check if class already exists using parameterized query
       const existingClass = await conn.query(`
-        SELECT Id FROM ApexClass WHERE Name = '${args.className}'
+        SELECT Id FROM ApexClass WHERE Name = '${escapeSoqlString(args.className)}'
       `);
       
       if (existingClass.records.length > 0) {
@@ -121,11 +130,11 @@ export async function handleWriteApex(conn: any, args: WriteApexArgs) {
     } 
     // Handle update operation
     else if (args.operation === 'update') {
-      console.error(`Updating Apex class: ${args.className}`);
+      // Updating Apex class
       
-      // Find the existing class
+      // Find the existing class using safe query
       const existingClass = await conn.query(`
-        SELECT Id FROM ApexClass WHERE Name = '${args.className}'
+        SELECT Id FROM ApexClass WHERE Name = '${escapeSoqlString(args.className)}'
       `);
       
       if (existingClass.records.length === 0) {
@@ -144,11 +153,11 @@ export async function handleWriteApex(conn: any, args: WriteApexArgs) {
         throw new Error(`Failed to update Apex class: ${updateResult.errors.join(', ')}`);
       }
       
-      // Get the updated class details
+      // Get the updated class details using safe query
       const updatedClass = await conn.query(`
         SELECT Id, Name, ApiVersion, Status, LastModifiedDate
         FROM ApexClass
-        WHERE Id = '${classId}'
+        WHERE Id = '${escapeSoqlString(classId)}'
       `);
       
       const classDetails = updatedClass.records[0];
@@ -167,7 +176,7 @@ export async function handleWriteApex(conn: any, args: WriteApexArgs) {
       throw new Error(`Invalid operation: ${args.operation}. Must be 'create' or 'update'.`);
     }
   } catch (error) {
-    console.error('Error writing Apex class:', error);
+    // Error writing Apex class
     return {
       content: [{ 
         type: "text", 

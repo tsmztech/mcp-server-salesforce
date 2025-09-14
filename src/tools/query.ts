@@ -1,4 +1,11 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { 
+  validateObjectName, 
+  validateFieldName, 
+  sanitizeWhereClause, 
+  validateLimit, 
+  MAX_WHERE_LENGTH 
+} from "../utils/soqlSanitizer.js";
 
 export const QUERY_RECORDS: Tool = {
   name: "salesforce_query_records",
@@ -125,8 +132,16 @@ export async function handleQueryRecords(conn: any, args: QueryArgs) {
   const { objectName, fields, whereClause, orderBy, limit } = args;
 
   try {
-    // Validate relationship field syntax
-    const validation = validateRelationshipFields(fields);
+    // SECURITY: Validate and sanitize all inputs to prevent SOQL injection
+    
+    // Validate object name
+    const safeObjectName = validateObjectName(objectName);
+    
+    // Validate field names
+    const safeFields = fields.map(field => validateFieldName(field));
+    
+    // Validate relationship field syntax (existing validation)
+    const validation = validateRelationshipFields(safeFields);
     if (!validation.isValid) {
       return {
         content: [{
@@ -137,17 +152,55 @@ export async function handleQueryRecords(conn: any, args: QueryArgs) {
       };
     }
 
-    // Construct SOQL query
-    let soql = `SELECT ${fields.join(', ')} FROM ${objectName}`;
-    if (whereClause) soql += ` WHERE ${whereClause}`;
-    if (orderBy) soql += ` ORDER BY ${orderBy}`;
-    if (limit) soql += ` LIMIT ${limit}`;
+    // Sanitize WHERE clause if provided
+    let safeWhereClause = '';
+    if (whereClause) {
+      if (whereClause.length > MAX_WHERE_LENGTH) {
+        return {
+          content: [{
+            type: "text",
+            text: `WHERE clause exceeds maximum length of ${MAX_WHERE_LENGTH} characters`
+          }],
+          isError: true,
+        };
+      }
+      safeWhereClause = sanitizeWhereClause(whereClause);
+    }
+    
+    // Validate ORDER BY clause
+    let safeOrderBy = '';
+    if (orderBy) {
+      // Basic validation - ORDER BY should only contain field names and ASC/DESC
+      const orderByPattern = /^[a-zA-Z_][a-zA-Z0-9_\.]*(\s+(ASC|DESC))?(\s*,\s*[a-zA-Z_][a-zA-Z0-9_\.]*(\s+(ASC|DESC))?)*$/i;
+      if (!orderByPattern.test(orderBy.trim())) {
+        return {
+          content: [{
+            type: "text",
+            text: "Invalid ORDER BY clause format"
+          }],
+          isError: true,
+        };
+      }
+      safeOrderBy = orderBy.trim();
+    }
+    
+    // Validate LIMIT if provided
+    let safeLimit: number | undefined;
+    if (limit !== undefined) {
+      safeLimit = validateLimit(limit);
+    }
+
+    // Construct secure SOQL query
+    let soql = `SELECT ${safeFields.join(', ')} FROM ${safeObjectName}`;
+    if (safeWhereClause) soql += ` WHERE ${safeWhereClause}`;
+    if (safeOrderBy) soql += ` ORDER BY ${safeOrderBy}`;
+    if (safeLimit) soql += ` LIMIT ${safeLimit}`;
 
     const result = await conn.query(soql);
     
     // Format the output
     const formattedRecords = result.records.map((record: any, index: number) => {
-      const recordStr = fields.map(field => {
+      const recordStr = safeFields.map(field => {
         // Handle special case for subqueries (child relationships)
         if (field.startsWith('(SELECT')) {
           const relationshipName = field.match(/FROM\s+(\w+)/)?.[1];
