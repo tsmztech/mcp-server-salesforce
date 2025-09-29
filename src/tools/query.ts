@@ -1,5 +1,10 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
+// Utility to check if optional schema keyword is allowed
+function isOptionalSchemaAllowed() {
+  return process.env.SALESFORCE_OPTIONAL_SCHEMA_KEYWORD_ALLOW === "true";
+}
+
 export const QUERY_RECORDS: Tool = {
   name: "salesforce_query_records",
   description: `Query records from any Salesforce object using SOQL, including relationship queries.
@@ -40,21 +45,18 @@ Note: When using relationship fields:
         items: { type: "string" },
         description: "List of fields to retrieve, including relationship fields"
       },
-      whereClause: {
+      whereClause: Object.assign({
         type: "string",
-        description: "WHERE clause, can include conditions on related objects",
-        optional: true
-      },
-      orderBy: {
+        description: "WHERE clause, can include conditions on related objects"
+      }, isOptionalSchemaAllowed() ? { optional: true } : {}),
+      orderBy: Object.assign({
         type: "string",
-        description: "ORDER BY clause, can include fields from related objects",
-        optional: true
-      },
-      limit: {
+        description: "ORDER BY clause, can include fields from related objects"
+      }, isOptionalSchemaAllowed() ? { optional: true } : {}),
+      limit: Object.assign({
         type: "number",
-        description: "Maximum number of records to return",
-        optional: true
-      }
+        description: "Maximum number of records to return"
+      }, isOptionalSchemaAllowed() ? { optional: true } : {})
     },
     required: ["objectName", "fields"]
   }
