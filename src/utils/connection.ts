@@ -84,9 +84,13 @@ export async function createSalesforceConnection(config?: ConnectionConfig) {
     'https://login.salesforce.com';
   
   try {
-    if (process.env.OAUTH_ACCESS_TOKEN) {
+    if (process.env.OAUTH_ACCESS_TOKEN && process.env.SALESFORCE_INSTANCE_URL) {
+      console.log("Connecting to Salesforce using provided OAuth access token", {
+        instanceUrl: process.env.SALESFORCE_INSTANCE_URL,
+        accessToken: process.env.OAUTH_ACCESS_TOKEN
+      });
       const conn = new jsforce.Connection({
-        serverUrl: loginUrl,
+        instanceUrl: process.env.SALESFORCE_INSTANCE_URL || 'https://login.salesforce.com',
         accessToken: process.env.OAUTH_ACCESS_TOKEN
       });
       
