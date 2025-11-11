@@ -1,0 +1,176 @@
+{
+  "dxt_version": "0.1",
+  "name": "salesforce-mcp-server",
+  "display_name": "Salesforce MCP Server",
+  "version": "1.0.0",
+  "description": "Integrate Claude with Salesforce for natural language interactions with your Salesforce data and metadata",
+  "long_description": "A comprehensive MCP server that enables Claude to query, modify, and manage your Salesforce objects and records using everyday language. Features include object and field management, smart object search, data queries with relationship support, Apex code management, debug log management, and field-level security controls.",
+  "author": {
+    "name": "TSMZ Tech",
+    "url": "https://github.com/tsmztech"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tsmztech/mcp-server-salesforce"
+  },
+  "homepage": "https://github.com/tsmztech/mcp-server-salesforce",
+  "documentation": "https://github.com/tsmztech/mcp-server-salesforce#readme",
+  "support": "https://github.com/tsmztech/mcp-server-salesforce/issues",
+  "keywords": ["salesforce", "crm", "data", "api", "automation", "business", "mcp"],
+  "license": "MIT",
+  "server": {
+    "type": "node",
+    "entry_point": "npx",
+    "mcp_config": {
+      "command": "npx",
+      "args": ["-y", "@tsmztech/mcp-server-salesforce"],
+      "env": {
+        "SALESFORCE_CONNECTION_TYPE": "${user_config.connection_type}",
+        "SALESFORCE_USERNAME": "${user_config.username}",
+        "SALESFORCE_PASSWORD": "${user_config.password}",
+        "SALESFORCE_TOKEN": "${user_config.security_token}",
+        "SALESFORCE_CLIENT_ID": "${user_config.client_id}",
+        "SALESFORCE_CLIENT_SECRET": "${user_config.client_secret}",
+        "SALESFORCE_INSTANCE_URL": "${user_config.instance_url}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "salesforce_search_objects",
+      "description": "Search for standard and custom Salesforce objects using partial name matches"
+    },
+    {
+      "name": "salesforce_describe_object",
+      "description": "Get detailed schema information for Salesforce objects including fields, relationships, and picklist values"
+    },
+    {
+      "name": "salesforce_query_records",
+      "description": "Query Salesforce records with SOQL, including parent-to-child and child-to-parent relationship support and complex filters"
+    },
+    {
+      "name": "salesforce_aggregate_query",
+      "description": "Execute aggregate queries with GROUP BY, HAVING clauses, and aggregate functions (COUNT, SUM, AVG, MIN, MAX)"
+    },
+    {
+      "name": "salesforce_dml_records",
+      "description": "Perform data operations: insert, update, delete, and upsert records using external IDs"
+    },
+    {
+      "name": "salesforce_manage_object",
+      "description": "Create new custom objects or update existing object properties and sharing settings"
+    },
+    {
+      "name": "salesforce_manage_field",
+      "description": "Create new custom fields or update existing field properties with automatic Field Level Security management"
+    },
+    {
+      "name": "salesforce_manage_field_permissions",
+      "description": "Grant, revoke, or view field-level security permissions for specific profiles"
+    },
+    {
+      "name": "salesforce_search_all",
+      "description": "Search across multiple Salesforce objects simultaneously using SOSL with field snippets and filtering"
+    },
+    {
+      "name": "salesforce_read_apex",
+      "description": "Read Apex class source code and metadata, with support for wildcards and name pattern matching"
+    },
+    {
+      "name": "salesforce_write_apex",
+      "description": "Create new Apex classes or update existing class implementations with API version control"
+    },
+    {
+      "name": "salesforce_read_apex_trigger",
+      "description": "Read Apex trigger source code and metadata, with support for wildcards and name pattern matching"
+    },
+    {
+      "name": "salesforce_write_apex_trigger",
+      "description": "Create new Apex triggers or update existing trigger implementations for specific objects and events"
+    },
+    {
+      "name": "salesforce_execute_anonymous",
+      "description": "Execute anonymous Apex code without creating a permanent class, with debug log support"
+    },
+    {
+      "name": "salesforce_manage_debug_logs",
+      "description": "Enable, disable, or retrieve debug logs for Salesforce users with configurable log levels"
+    }
+  ],
+  "prompts": [
+    {
+      "name": "salesforce_object_analysis",
+      "description": "Analyze a Salesforce object's structure and relationships",
+      "arguments": ["object_name"],
+      "text": "Analyze the ${arguments.object_name} object in Salesforce. Show me its field structure, relationships, and suggest best practices for working with this object."
+    },
+    {
+      "name": "salesforce_data_quality",
+      "description": "Assess data quality for a Salesforce object",
+      "arguments": ["object_name"],
+      "text": "Perform a data quality assessment for the ${arguments.object_name} object. Check for missing required fields, duplicate records, and data consistency issues."
+    },
+    {
+      "name": "salesforce_security_review",
+      "description": "Review field-level security for an object",
+      "arguments": ["object_name"],
+      "text": "Review the field-level security settings for the ${arguments.object_name} object. Identify any fields that might have inappropriate access permissions and suggest improvements."
+    }
+  ],
+  "compatibility": {
+    "claude_desktop": ">=0.1.0",
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=16.0.0"
+    }
+  },
+  "user_config": {
+    "connection_type": {
+      "type": "string",
+      "title": "Authentication Method",
+      "description": "Choose authentication method: 'User_Password' (username/password with security token), 'OAuth_2.0_Client_Credentials' (Connected App OAuth), or 'Salesforce_CLI' (requires Salesforce CLI)",
+      "required": true,
+      "default": "Salesforce_CLI"
+    },
+    "instance_url": {
+      "type": "string",
+      "title": "Salesforce Instance URL",
+      "description": "Your Salesforce instance URL (e.g., https://your-domain.my.salesforce.com). Use https://login.salesforce.com for production or https://test.salesforce.com for sandbox. Not required for Salesforce_CLI authentication.",
+      "required": false,
+      "default": "https://login.salesforce.com"
+    },
+    "username": {
+      "type": "string",
+      "title": "Username",
+      "description": "Your Salesforce username (required only for User_Password authentication)",
+      "required": false
+    },
+    "password": {
+      "type": "string",
+      "title": "Password",
+      "description": "Your Salesforce password (required only for User_Password authentication)",
+      "sensitive": true,
+      "required": false
+    },
+    "security_token": {
+      "type": "string",
+      "title": "Security Token",
+      "description": "Your Salesforce security token (required only for User_Password authentication). Reset from Salesforce Settings > My Personal Information > Reset My Security Token",
+      "sensitive": true,
+      "required": false
+    },
+    "client_id": {
+      "type": "string",
+      "title": "Client ID",
+      "description": "Connected App Client ID (required only for OAuth_2.0_Client_Credentials authentication)",
+      "required": false
+    },
+    "client_secret": {
+      "type": "string",
+      "title": "Client Secret",
+      "description": "Connected App Client Secret (required only for OAuth_2.0_Client_Credentials authentication)",
+      "sensitive": true,
+      "required": false
+    }
+  }
+}
