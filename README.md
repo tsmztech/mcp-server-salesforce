@@ -22,9 +22,22 @@ An MCP (Model Context Protocol) server implementation that integrates Claude wit
 
 ## Installation
 
+### Global Installation (npm)
+
 ```bash
 npm install -g @tsmztech/mcp-server-salesforce
 ```
+
+### Claude Desktop Quick Installation
+
+For easy setup with Claude Desktop, download the pre-configured extension:
+
+1. Download [`salesforce-mcp-extension.dxt`](./claude-desktop/salesforce-mcp-extension.dxt) from the `claude-desktop/` folder
+2. Open Claude Desktop → Settings → Extensions
+3. Drag the `.dxt` file into the Extensions window
+4. Configure your Salesforce credentials when prompted
+
+For manual Claude Desktop configuration, see [Usage with Claude Desktop](#usage-with-claude-desktop) below.
 
 ## Tools
 
