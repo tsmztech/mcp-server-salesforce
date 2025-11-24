@@ -27,7 +27,7 @@
     "license": "MIT",
     "dependencies": {
       "@modelcontextprotocol/sdk": "1.21.1",
-      "dotenv": "16.4.7",
+      "dotenv": "17.2.3",
       "jsforce": "^3.10.3"
     },
     "devDependencies": {
