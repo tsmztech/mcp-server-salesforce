@@ -1,6 +1,6 @@
 {
   "name": "@tsmztech/mcp-server-salesforce",
-  "version": "0.0.3",
+  "version": "0.0.6",
   "description": "A Salesforce connector MCP Server.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -26,8 +26,8 @@
   "author": "tsmztech",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.19.1",
-    "dotenv": "^17.2.1",
+    "@modelcontextprotocol/sdk": "1.22.0",
+    "dotenv": "16.4.7",
     "jsforce": "^3.10.3"
   },
   "devDependencies": {

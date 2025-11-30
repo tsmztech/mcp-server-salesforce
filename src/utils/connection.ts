@@ -15,7 +15,7 @@ async function getSalesforceOrgInfo(): Promise<SalesforceCLIResponse> {
   try {
     const command = 'sf org display --json';
     const cwdLog = process.cwd();
-    console.log(`Executing Salesforce CLI command: ${command} in directory: ${cwdLog}`);
+    console.error(`Executing Salesforce CLI command: ${command} in directory: ${cwdLog}`);
 
     // Use execAsync and handle both success and error cases
     let stdout = '';
@@ -154,7 +154,7 @@ export async function createSalesforceConnection(config?: ConnectionConfig) {
       return conn;
     } else if (connectionType === ConnectionType.Salesforce_CLI) {
       // Salesforce CLI authentication using sf org display
-      console.log('Connecting to Salesforce using Salesforce CLI authentication');
+      console.error('Connecting to Salesforce using Salesforce CLI authentication');
       
       // Execute sf org display --json command
       const orgInfo = await getSalesforceOrgInfo();
@@ -165,8 +165,8 @@ export async function createSalesforceConnection(config?: ConnectionConfig) {
         accessToken: orgInfo.result.accessToken
       });
       
-      console.log(`Connected to Salesforce org: ${orgInfo.result.username} (${orgInfo.result.alias || 'No alias'})`);
-      
+      console.error(`Connected to Salesforce org: ${orgInfo.result.username} (${orgInfo.result.alias || 'No alias'})`);
+
       return conn;
     } else {
       // Default: Username/Password Flow with Security Token
