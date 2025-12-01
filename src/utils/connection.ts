@@ -84,6 +84,18 @@ export async function createSalesforceConnection(config?: ConnectionConfig) {
     'https://login.salesforce.com';
   
   try {
+    if (process.env.OAUTH_ACCESS_TOKEN && process.env.SALESFORCE_INSTANCE_URL) {
+      console.log("Connecting to Salesforce using provided OAuth access token", {
+        instanceUrl: process.env.SALESFORCE_INSTANCE_URL,
+        accessToken: process.env.OAUTH_ACCESS_TOKEN
+      });
+      const conn = new jsforce.Connection({
+        instanceUrl: process.env.SALESFORCE_INSTANCE_URL || 'https://login.salesforce.com',
+        accessToken: process.env.OAUTH_ACCESS_TOKEN
+      });
+      
+      return conn;
+    }
     if (connectionType === ConnectionType.OAuth_2_0_Client_Credentials) {
       // OAuth 2.0 Client Credentials Flow
       const clientId = process.env.SALESFORCE_CLIENT_ID;
