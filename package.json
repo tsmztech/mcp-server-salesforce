@@ -6,34 +6,35 @@
     "types": "dist/index.d.ts",
     "type": "module",
     "bin": {
-      "salesforce-connector": "dist/index.js"
+        "salesforce-connector": "dist/index.js"
     },
     "files": [
-      "dist"
+        "dist"
     ],
     "scripts": {
-      "build": "tsc && shx chmod +x dist/*.js",
-      "prepare": "npm run build",
-      "watch": "tsc --watch",
-      "test": "node --test"
+        "build": "tsc && shx chmod +x dist/*.js",
+        "prepare": "npm run build",
+        "watch": "tsc --watch",
+        "test": "node --test"
     },
     "keywords": [
-      "mcp",
-      "salesforce",
-      "claude",
-      "ai"
+        "mcp",
+        "salesforce",
+        "claude",
+        "ai"
     ],
     "author": "tsmztech",
     "license": "MIT",
     "dependencies": {
-      "@modelcontextprotocol/sdk": "1.22.0",
-      "dotenv": "16.4.7",
-      "jsforce": "^3.10.3"
+        "@modelcontextprotocol/sdk": "^1.24.3",
+        "@types/xml2js": "^0.4.14",
+        "dotenv": "16.4.7",
+        "jsforce": "^3.10.3",
+        "xml2js": "^0.6.2"
     },
     "devDependencies": {
-      "@types/node": "^24.3.0",
-      "typescript": "^5.7.2",
-      "shx": "^0.4.0"
+        "@types/node": "^24.3.0",
+        "shx": "^0.4.0",
+        "typescript": "^5.7.2"
     }
-  }
-  
+}

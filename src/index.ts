@@ -24,6 +24,9 @@ import { READ_APEX_TRIGGER, handleReadApexTrigger, ReadApexTriggerArgs } from ".
 import { WRITE_APEX_TRIGGER, handleWriteApexTrigger, WriteApexTriggerArgs } from "./tools/writeApexTrigger.js";
 import { EXECUTE_ANONYMOUS, handleExecuteAnonymous, ExecuteAnonymousArgs } from "./tools/executeAnonymous.js";
 import { MANAGE_DEBUG_LOGS, handleManageDebugLogs, ManageDebugLogsArgs } from "./tools/manageDebugLogs.js";
+import { createReport, createReportTool, CreateReportParams, ReportGrouping, ReportFilter, ReportChart } from './tools/report/createReport.js';
+import { listReportTypes, listReportTypesTool, describeReportType, describeReportTypeTool } from './tools/report/listReportTypes.js';
+import { readReport, readReportTool, listReports, listReportsTool } from './tools/report/readReport.js';
 
 // Load environment variables (using dotenv 16.x which has no stdout tips)
 // MCP servers require stdout to contain ONLY JSON-RPC messages
@@ -58,7 +61,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     READ_APEX_TRIGGER,
     WRITE_APEX_TRIGGER,
     EXECUTE_ANONYMOUS,
-    MANAGE_DEBUG_LOGS
+    MANAGE_DEBUG_LOGS,
+    createReportTool,
+    listReportTypesTool,
+    describeReportTypeTool, 
+    readReportTool,
+    listReportsTool
   ],
 }));
 
@@ -319,7 +327,93 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         return await handleManageDebugLogs(conn, validatedArgs);
       }
+      
+      
+      case "salesforce_create_report": {
+        const reportArgs = args as Record<string, unknown>;
+        if (!reportArgs.name || !reportArgs.reportType || !reportArgs.format || !Array.isArray(reportArgs.columns)) {
+          throw new Error('name, reportType, format, and columns array are required for creating report');
+        }
+        
+        // Type check and conversion
+        const validatedArgs: CreateReportParams = {
+          name: reportArgs.name as string,
+          reportType: reportArgs.reportType as string,
+          format: reportArgs.format as 'TABULAR' | 'SUMMARY' | 'MATRIX',
+          columns: reportArgs.columns as string[],
+          groupingsDown: reportArgs.groupingsDown as ReportGrouping[] | undefined,
+          groupingsAcross: reportArgs.groupingsAcross as ReportGrouping[] | undefined,
+          filters: reportArgs.filters as ReportFilter[] | undefined,
+          chart: reportArgs.chart as ReportChart | undefined,
+          folder: reportArgs.folder as string | undefined,
+          description: reportArgs.description as string | undefined
+        };
 
+        const result = await createReport(conn, validatedArgs);
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify(result, null, 2)
+          }]
+        };
+      }
+
+      case "salesforce_list_report_types": {
+        const reportTypesArgs = args as Record<string, unknown>;
+        
+        const result = await listReportTypes(conn, reportTypesArgs.searchPattern as string | undefined);
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify(result, null, 2)
+          }]
+        };
+      }
+
+      case "salesforce_describe_report_type": {
+        const describeArgs = args as Record<string, unknown>;
+        if (!describeArgs.reportType) {
+          throw new Error('reportType is required for describing report type');
+        }
+        
+        const result = await describeReportType(conn, describeArgs.reportType as string);
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify(result, null, 2)
+          }]
+        };
+      }
+      
+      
+      case "salesforce_read_report": {
+        const readReportArgs = args as Record<string, unknown>;
+        if (!readReportArgs.reportName) {
+          throw new Error('reportName is required for reading report');
+        }
+        
+        const result = await readReport(conn, readReportArgs.reportName as string);
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify(result, null, 2)
+          }]
+        };
+      }
+
+      case "salesforce_list_reports": {
+        const listReportsArgs = args as Record<string, unknown>;
+        
+        const result = await listReports(conn, listReportsArgs.searchPattern as string | undefined);
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify(result, null, 2)
+          }]
+        };
+      }
+      
+      
       default:
         return {
           content: [{ type: "text", text: `Unknown tool: ${name}` }],
