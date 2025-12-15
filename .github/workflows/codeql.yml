@@ -16,10 +16,10 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@v6.0.0
-      - uses: github/codeql-action/init@0499de31b99561a6d14a36a5f662c2a54f91beee
+      - uses: github/codeql-action/init@1b168cd39490f61582a9beae412bb7057a6b2c4e
         with:
           languages: javascript
-      - uses: github/codeql-action/autobuild@0499de31b99561a6d14a36a5f662c2a54f91beee
-      - uses: github/codeql-action/analyze@0499de31b99561a6d14a36a5f662c2a54f91beee
+      - uses: github/codeql-action/autobuild@1b168cd39490f61582a9beae412bb7057a6b2c4e
+      - uses: github/codeql-action/analyze@1b168cd39490f61582a9beae412bb7057a6b2c4e
         with:
           category: "/language:javascript"
