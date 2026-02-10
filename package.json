@@ -1,6 +1,6 @@
 {
-    "name": "@tsmztech/mcp-server-salesforce",
-    "version": "0.0.6",
+    "name": "@acquis-consulting/mcp-server-salesforce",
+    "version": "0.0.7",
     "description": "A Salesforce connector MCP Server.",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
@@ -23,7 +23,7 @@
       "claude",
       "ai"
     ],
-    "author": "tsmztech",
+    "author": "mkona-acquis",
     "license": "MIT",
     "dependencies": {
       "@modelcontextprotocol/sdk": "1.22.0",

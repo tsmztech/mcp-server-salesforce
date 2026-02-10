@@ -25,7 +25,7 @@ An MCP (Model Context Protocol) server implementation that integrates Claude wit
 ### Global Installation (npm)
 
 ```bash
-npm install -g @tsmztech/mcp-server-salesforce
+npm install -g @acquis-consulting/mcp-server-salesforce
 ```
 
 ### Claude Desktop Quick Installation
@@ -189,7 +189,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "salesforce": {
       "command": "npx",
-      "args": ["-y", "@tsmztech/mcp-server-salesforce"],
+      "args": ["-y", "@acquis-consulting/mcp-server-salesforce"],
       "env": {
         "SALESFORCE_CONNECTION_TYPE": "Salesforce_CLI"
       }
@@ -204,7 +204,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "salesforce": {
       "command": "npx",
-      "args": ["-y", "@tsmztech/mcp-server-salesforce"],
+      "args": ["-y", "@acquis-consulting/mcp-server-salesforce"],
       "env": {
         "SALESFORCE_CONNECTION_TYPE": "User_Password",
         "SALESFORCE_USERNAME": "your_username",
@@ -223,7 +223,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "salesforce": {
       "command": "npx",
-      "args": ["-y", "@tsmztech/mcp-server-salesforce"],
+      "args": ["-y", "@acquis-consulting/mcp-server-salesforce"],
       "env": {
         "SALESFORCE_CONNECTION_TYPE": "OAuth_2.0_Client_Credentials",
         "SALESFORCE_CLIENT_ID": "your_client_id",

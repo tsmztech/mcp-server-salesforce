@@ -23,7 +23,7 @@
     "entry_point": "npx",
     "mcp_config": {
       "command": "npx",
-      "args": ["-y", "@tsmztech/mcp-server-salesforce"],
+      "args": ["-y", "@acquis-consulting/mcp-server-salesforce"],
       "env": {
         "SALESFORCE_CONNECTION_TYPE": "${user_config.connection_type}",
         "SALESFORCE_USERNAME": "${user_config.username}",
