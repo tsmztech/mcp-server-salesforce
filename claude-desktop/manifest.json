@@ -6,8 +6,8 @@
   "description": "Integrate Claude with Salesforce for natural language interactions with your Salesforce data and metadata",
   "long_description": "A comprehensive MCP server that enables Claude to query, modify, and manage your Salesforce objects and records using everyday language. Features include object and field management, smart object search, data queries with relationship support, Apex code management, debug log management, and field-level security controls.",
   "author": {
-    "name": "TSMZ Tech",
-    "url": "https://github.com/tsmztech"
+    "name": "Acquis Consulting",
+    "url": "https://github.com/mkona-acquis"
   },
   "repository": {
     "type": "git",
