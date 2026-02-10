@@ -25,7 +25,7 @@ An MCP (Model Context Protocol) server implementation that integrates Claude wit
 ### Global Installation (npm)
 
 ```bash
-npm install -g @tsmztech/mcp-server-salesforce
+npm install -g @acquis-consulting/mcp-server-salesforce
 ```
 
 ### Claude Desktop Quick Installation
@@ -154,6 +154,14 @@ Manage debug logs for Salesforce users:
 * Configure log levels (NONE, ERROR, WARN, INFO, DEBUG, FINE, FINER, FINEST)
 * Example: "Enable debug logs for user@example.com" or "Retrieve recent logs for an admin user"
 
+### salesforce_tooling_query
+Query Salesforce Tooling API objects using SOQL:
+* Access metadata objects not available through the standard API
+* Query validation rules, flow definitions, workflow rules
+* Query Apex classes, triggers, Visualforce pages and components
+* Query Lightning components (Aura and LWC), page layouts, record types
+* Example: "Get all validation rules for the Account object" or "Find all active flows"
+
 ## Setup
 
 ### Salesforce Authentication
@@ -189,7 +197,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "salesforce": {
       "command": "npx",
-      "args": ["-y", "@tsmztech/mcp-server-salesforce"],
+      "args": ["-y", "@acquis-consulting/mcp-server-salesforce"],
       "env": {
         "SALESFORCE_CONNECTION_TYPE": "Salesforce_CLI"
       }
@@ -204,7 +212,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "salesforce": {
       "command": "npx",
-      "args": ["-y", "@tsmztech/mcp-server-salesforce"],
+      "args": ["-y", "@acquis-consulting/mcp-server-salesforce"],
       "env": {
         "SALESFORCE_CONNECTION_TYPE": "User_Password",
         "SALESFORCE_USERNAME": "your_username",
@@ -223,7 +231,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "salesforce": {
       "command": "npx",
-      "args": ["-y", "@tsmztech/mcp-server-salesforce"],
+      "args": ["-y", "@acquis-consulting/mcp-server-salesforce"],
       "env": {
         "SALESFORCE_CONNECTION_TYPE": "OAuth_2.0_Client_Credentials",
         "SALESFORCE_CLIENT_ID": "your_client_id",
@@ -328,6 +336,14 @@ Examples with Field Level Security:
 "Retrieve recent logs for an admin user"
 "Disable debug logs for a specific user"
 "Configure log level to DEBUG for a user"
+```
+
+### Querying Tooling API
+```
+"Get all validation rules for the Account object"
+"Find all active flow definitions"
+"Show me Apex classes modified today"
+"List all Lightning Web Components"
 ```
 
 ## Development

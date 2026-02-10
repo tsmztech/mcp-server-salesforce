@@ -24,6 +24,7 @@ import { READ_APEX_TRIGGER, handleReadApexTrigger, ReadApexTriggerArgs } from ".
 import { WRITE_APEX_TRIGGER, handleWriteApexTrigger, WriteApexTriggerArgs } from "./tools/writeApexTrigger.js";
 import { EXECUTE_ANONYMOUS, handleExecuteAnonymous, ExecuteAnonymousArgs } from "./tools/executeAnonymous.js";
 import { MANAGE_DEBUG_LOGS, handleManageDebugLogs, ManageDebugLogsArgs } from "./tools/manageDebugLogs.js";
+import { TOOLING_QUERY, handleToolingQuery, ToolingQueryArgs } from "./tools/toolingQuery.js";
 
 // Load environment variables (using dotenv 16.x which has no stdout tips)
 // MCP servers require stdout to contain ONLY JSON-RPC messages
@@ -58,7 +59,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     READ_APEX_TRIGGER,
     WRITE_APEX_TRIGGER,
     EXECUTE_ANONYMOUS,
-    MANAGE_DEBUG_LOGS
+    MANAGE_DEBUG_LOGS,
+    TOOLING_QUERY
   ],
 }));
 
@@ -318,6 +320,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
 
         return await handleManageDebugLogs(conn, validatedArgs);
+      }
+
+      case "salesforce_tooling_query": {
+        const toolingArgs = args as Record<string, unknown>;
+        if (!toolingArgs.soqlQuery) {
+          throw new Error('soqlQuery is required for Tooling API query');
+        }
+        const validatedArgs: ToolingQueryArgs = {
+          soqlQuery: toolingArgs.soqlQuery as string
+        };
+        return await handleToolingQuery(conn, validatedArgs);
       }
 
       default:
