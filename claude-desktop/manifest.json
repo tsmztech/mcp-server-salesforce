@@ -95,6 +95,10 @@
     {
       "name": "salesforce_manage_debug_logs",
       "description": "Enable, disable, or retrieve debug logs for Salesforce users with configurable log levels"
+    },
+    {
+      "name": "salesforce_tooling_query",
+      "description": "Query Salesforce Tooling API objects using SOQL for metadata like validation rules, flows, workflow rules, Apex classes, Lightning components, and more"
     }
   ],
   "prompts": [
