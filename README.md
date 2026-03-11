@@ -157,7 +157,7 @@ Manage debug logs for Salesforce users:
 ## Setup
 
 ### Salesforce Authentication
-You can connect to Salesforce using one of three authentication methods:
+You can connect to Salesforce using one of four authentication methods:
 
 #### 1. Username/Password Authentication (Default)
 1. Set up your Salesforce credentials
@@ -170,7 +170,30 @@ You can connect to Salesforce using one of three authentication methods:
 4. Save the Client ID and Client Secret
 5. **Important**: Note your instance URL (e.g., `https://your-domain.my.salesforce.com`) as it's required for authentication
 
-#### 3. Salesforce CLI Authentication (Recommended for local/dev) (contribution by @andrea9293)
+#### 3. OAuth 2.0 Authorization Code Flow (Browser-based with SSO Support)
+**Recommended for Okta and other SSO providers**
+
+1. Create a Connected App in Salesforce:
+   - Setup → App Manager → New Connected App
+   - Enable OAuth Settings
+   - Set Callback URL to `http://localhost:3000/oauth/callback` (or your custom redirect URI)
+   - Select OAuth Scopes: `api`, `refresh_token`, `offline_access`
+   - Save and note the Consumer Key (Client ID) and Consumer Secret (Client Secret)
+
+2. For Okta SSO Integration:
+   - Your Salesforce org must be configured with Okta as the identity provider
+   - Users will authenticate through Okta's login page
+   - The MCP server will automatically open a browser for authentication
+   - Tokens are securely stored in `~/.mcp-salesforce/oauth-tokens.json`
+   - Refresh tokens are used for automatic re-authentication
+
+3. First-time setup:
+   - When you start the MCP server, it will automatically open your browser
+   - Log in through your Okta credentials
+   - After successful authentication, the browser will show "Authentication Successful!"
+   - The server will save your tokens for future use
+
+#### 4. Salesforce CLI Authentication (Recommended for local/dev) (contribution by @andrea9293)
 1. Install and authenticate Salesforce CLI (`sf`).
 2. Make sure your org is authenticated and accessible via `sf org display --json` in the root of your Salesforce project.
 3. The server will automatically retrieve the access token and instance url using the CLI.
@@ -236,6 +259,52 @@ Add to your `claude_desktop_config.json`:
 ```
 
 > **Note**: For OAuth 2.0 Client Credentials Flow, the `SALESFORCE_INSTANCE_URL` must be your exact Salesforce instance URL (e.g., `https://your-domain.my.salesforce.com`). The token endpoint will be constructed as `<instance_url>/services/oauth2/token`.
+
+#### For OAuth 2.0 Authorization Code Flow (Browser-based with Okta SSO):
+```json
+{
+  "mcpServers": {
+    "salesforce": {
+      "command": "npx",
+      "args": ["-y", "@tsmztech/mcp-server-salesforce"],
+      "env": {
+        "SALESFORCE_CONNECTION_TYPE": "OAuth_2.0_Authorization_Code",
+        "SALESFORCE_CLIENT_ID": "your_connected_app_client_id",
+        "SALESFORCE_CLIENT_SECRET": "your_connected_app_client_secret",
+        "SALESFORCE_INSTANCE_URL": "https://your-domain.my.salesforce.com",  // Your Salesforce instance URL
+        "SALESFORCE_REDIRECT_URI": "http://localhost:3000/oauth/callback"     // Optional: defaults to http://localhost:3000/oauth/callback
+      }
+    }
+  }
+}
+```
+
+> **Note**:
+> - For OAuth 2.0 Authorization Code Flow, the server will automatically open your browser for authentication
+> - If your org uses Okta SSO, you'll be redirected to Okta's login page
+> - Tokens are stored in `~/.mcp-salesforce/oauth-tokens.json` and automatically refreshed
+> - Make sure the redirect URI matches what you configured in your Connected App
+> - The redirect URI must be accessible from your local machine (default: `http://localhost:3000/oauth/callback`)
+
+### OAuth Token Management
+
+When using OAuth 2.0 Authorization Code Flow, tokens are stored locally for convenience:
+
+**Token Storage Location**: `~/.mcp-salesforce/oauth-tokens.json`
+
+**To re-authenticate** (e.g., if tokens expire or you want to switch accounts):
+```bash
+# Delete the token file
+rm ~/.mcp-salesforce/oauth-tokens.json
+
+# Restart the MCP server - it will prompt for authentication again
+```
+
+**Security Notes**:
+- Token files are created with restricted permissions (readable/writable only by owner)
+- Never commit or share your token files
+- Tokens are automatically refreshed when they expire
+- If refresh fails, you'll be prompted to re-authenticate through the browser
 
 ## Example Usage
 

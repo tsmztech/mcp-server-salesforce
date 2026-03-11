@@ -4,6 +4,14 @@ import https from 'https';
 import querystring from 'querystring';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import {
+  generateAuthorizationUrl,
+  exchangeCodeForToken,
+  refreshAccessToken,
+  startCallbackServer,
+  loadTokens,
+  saveTokens
+} from './oauth.js';
 
 const execAsync = promisify(exec);
 
@@ -150,7 +158,88 @@ export async function createSalesforceConnection(config?: ConnectionConfig) {
         instanceUrl: tokenResponse.instance_url,
         accessToken: tokenResponse.access_token
       });
-      
+
+      return conn;
+    } else if (connectionType === ConnectionType.OAuth_2_0_Authorization_Code) {
+      // OAuth 2.0 Authorization Code Flow (browser-based authentication)
+      const clientId = process.env.SALESFORCE_CLIENT_ID;
+      const clientSecret = process.env.SALESFORCE_CLIENT_SECRET;
+      const redirectUri = process.env.SALESFORCE_REDIRECT_URI || 'http://localhost:3000/oauth/callback';
+
+      if (!clientId || !clientSecret) {
+        throw new Error('SALESFORCE_CLIENT_ID and SALESFORCE_CLIENT_SECRET are required for OAuth 2.0 Authorization Code Flow');
+      }
+
+      console.error('Connecting to Salesforce using OAuth 2.0 Authorization Code Flow');
+
+      // Try to load existing tokens
+      let tokens = loadTokens();
+
+      // If we have a refresh token, try to refresh the access token
+      if (tokens && tokens.refresh_token) {
+        try {
+          console.error('Attempting to refresh access token...');
+          tokens = await refreshAccessToken(loginUrl, clientId, clientSecret, tokens.refresh_token);
+          saveTokens(tokens);
+          console.error('Access token refreshed successfully');
+        } catch (error) {
+          console.error('Failed to refresh token, will re-authenticate:', error);
+          tokens = null;
+        }
+      }
+
+      // If no valid tokens, perform browser-based authentication
+      if (!tokens) {
+        console.error('Starting browser-based authentication...');
+
+        // Extract port from redirect URI
+        const redirectUrl = new URL(redirectUri);
+        const port = parseInt(redirectUrl.port || '3000');
+
+        // Start local callback server
+        const { server, code } = await startCallbackServer(port);
+
+        try {
+          // Generate authorization URL
+          const authUrl = generateAuthorizationUrl(loginUrl, clientId, redirectUri);
+
+          console.error('\n===========================================');
+          console.error('Please open the following URL in your browser to authenticate:');
+          console.error(authUrl);
+          console.error('===========================================\n');
+
+          // Try to open browser automatically
+          const platform = process.platform;
+          const openCommand = platform === 'darwin' ? 'open' : platform === 'win32' ? 'start' : 'xdg-open';
+
+          try {
+            exec(`${openCommand} "${authUrl}"`);
+          } catch (err) {
+            console.error('Could not automatically open browser. Please open the URL manually.');
+          }
+
+          // Wait for the authorization code
+          const authCode = await code;
+
+          // Exchange code for tokens
+          console.error('Exchanging authorization code for access token...');
+          tokens = await exchangeCodeForToken(loginUrl, clientId, clientSecret, redirectUri, authCode);
+
+          // Save tokens for future use
+          saveTokens(tokens);
+          console.error('Authentication successful! Tokens saved.');
+        } finally {
+          // Close the callback server
+          server.close();
+        }
+      }
+
+      // Create connection with the access token
+      const conn = new jsforce.Connection({
+        instanceUrl: tokens.instance_url,
+        accessToken: tokens.access_token
+      });
+
       return conn;
     } else if (connectionType === ConnectionType.Salesforce_CLI) {
       // Salesforce CLI authentication using sf org display

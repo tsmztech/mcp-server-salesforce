@@ -7,13 +7,21 @@ export enum ConnectionType {
    * Requires SALESFORCE_USERNAME, SALESFORCE_PASSWORD, and optionally SALESFORCE_TOKEN
    */
   User_Password = 'User_Password',
-  
+
   /**
    * OAuth 2.0 Client Credentials Flow using client ID and secret
    * Requires SALESFORCE_CLIENT_ID and SALESFORCE_CLIENT_SECRET
    */
   OAuth_2_0_Client_Credentials = 'OAuth_2.0_Client_Credentials',
-  
+
+  /**
+   * OAuth 2.0 Authorization Code Flow with browser-based authentication
+   * Requires SALESFORCE_CLIENT_ID, SALESFORCE_CLIENT_SECRET, and SALESFORCE_REDIRECT_URI
+   * Supports SSO providers like Okta
+   * Tokens are stored in ~/.mcp-salesforce/oauth-tokens.json
+   */
+  OAuth_2_0_Authorization_Code = 'OAuth_2.0_Authorization_Code',
+
   /**
    * Salesforce CLI authentication using sf org display command
    * Requires Salesforce CLI to be installed and an authenticated org
@@ -54,4 +62,17 @@ export interface SalesforceCLIResponse {
     alias?: string;
   };
   warnings?: string[];
+}
+
+/**
+ * Interface for OAuth token storage
+ */
+export interface OAuthTokens {
+  access_token: string;
+  refresh_token?: string;
+  instance_url: string;
+  id?: string;
+  token_type?: string;
+  issued_at?: string;
+  signature?: string;
 }

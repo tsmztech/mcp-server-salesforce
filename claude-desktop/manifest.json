@@ -128,7 +128,7 @@
     "connection_type": {
       "type": "string",
       "title": "Authentication Method",
-      "description": "Choose authentication method: 'User_Password' (username/password with security token), 'OAuth_2.0_Client_Credentials' (Connected App OAuth), or 'Salesforce_CLI' (requires Salesforce CLI)",
+      "description": "Choose authentication method: 'User_Password' (username/password with security token), 'OAuth_2.0_Client_Credentials' (machine-to-machine OAuth), 'OAuth_2.0_Authorization_Code' (browser-based OAuth with SSO support for Okta), or 'Salesforce_CLI' (requires Salesforce CLI)",
       "required": true,
       "default": "Salesforce_CLI"
     },
@@ -162,15 +162,22 @@
     "client_id": {
       "type": "string",
       "title": "Client ID",
-      "description": "Connected App Client ID (required only for OAuth_2.0_Client_Credentials authentication)",
+      "description": "Connected App Client ID (required for OAuth_2.0_Client_Credentials and OAuth_2.0_Authorization_Code authentication)",
       "required": false
     },
     "client_secret": {
       "type": "string",
       "title": "Client Secret",
-      "description": "Connected App Client Secret (required only for OAuth_2.0_Client_Credentials authentication)",
+      "description": "Connected App Client Secret (required for OAuth_2.0_Client_Credentials and OAuth_2.0_Authorization_Code authentication)",
       "sensitive": true,
       "required": false
+    },
+    "redirect_uri": {
+      "type": "string",
+      "title": "Redirect URI",
+      "description": "OAuth redirect URI (required only for OAuth_2.0_Authorization_Code authentication). Default: http://localhost:3000/oauth/callback",
+      "required": false,
+      "default": "http://localhost:3000/oauth/callback"
     }
   }
 }
