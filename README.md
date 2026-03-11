@@ -17,6 +17,7 @@ An MCP (Model Context Protocol) server implementation that integrates Claude wit
 * **Data Manipulation**: Insert, update, delete, and upsert records with ease
 * **Cross-Object Search**: Search across multiple objects using SOSL
 * **Apex Code Management**: Read, create, and update Apex classes and triggers
+* **REST API Passthrough**: Call any Salesforce REST endpoint directly — Reports, Composite API, Files, Limits, and more
 * **Intuitive Error Handling**: Clear feedback with Salesforce-specific error details
 * **Switchable Authentication**: Supports multiple orgs. Easily switch your active Salesforce org based on the default org configured in your VS Code workspace (use Salesforce_CLI authentication for this feature).
 
@@ -153,6 +154,22 @@ Manage debug logs for Salesforce users:
 * Retrieve and view debug logs
 * Configure log levels (NONE, ERROR, WARN, INFO, DEBUG, FINE, FINER, FINEST)
 * Example: "Enable debug logs for user@example.com" or "Retrieve recent logs for an admin user"
+
+### salesforce_rest_api
+Make direct REST API calls to any Salesforce REST endpoint:
+* Access any Salesforce REST API endpoint not covered by other tools
+* Supports GET, POST, PATCH, PUT, and DELETE methods
+* Automatically handles API version prefixing (`/services/data/vXX.0/`)
+* Supports raw paths for custom Apex REST endpoints (`/services/apexrest/...`)
+* Query parameters and JSON request bodies
+* Configurable API version override
+* Large response truncation to prevent client overload
+* Examples:
+  - "Get our org's API limits" → `GET /limits`
+  - "Run report 00O5e000004XXXX" → `GET /analytics/reports/{id}`
+  - "Get the Composite API to batch requests" → `POST /composite`
+  - "Download file content" → `GET /sobjects/ContentVersion/{id}/VersionData`
+  - "Call our custom Apex REST endpoint" → `GET /services/apexrest/MyEndpoint` (with `rawPath: true`)
 
 ## Setup
 
@@ -328,6 +345,15 @@ Examples with Field Level Security:
 "Retrieve recent logs for an admin user"
 "Disable debug logs for a specific user"
 "Configure log level to DEBUG for a user"
+```
+
+### REST API Calls
+```
+"Check our org's API usage limits"
+"Run the weekly sales report"
+"Get all available REST API resources"
+"Call our custom Apex REST endpoint at /services/apexrest/AccountSync"
+"Use the Composite API to create an Account and Contact in one call"
 ```
 
 ## Development
