@@ -9,7 +9,7 @@ import {
 import * as dotenv from "dotenv";
 
 import { createSalesforceConnection } from "./utils/connection.js";
-import { SEARCH_OBJECTS, handleSearchObjects } from "./tools/search.js";
+import { SEARCH_OBJECTS, handleSearchObjects, SearchObjectsArgs } from "./tools/search.js";
 import { DESCRIBE_OBJECT, handleDescribeObject } from "./tools/describe.js";
 import { QUERY_RECORDS, handleQueryRecords, QueryArgs } from "./tools/query.js";
 import { AGGREGATE_QUERY, handleAggregateQuery, AggregateQueryArgs } from "./tools/aggregateQuery.js";
@@ -24,10 +24,15 @@ import { READ_APEX_TRIGGER, handleReadApexTrigger, ReadApexTriggerArgs } from ".
 import { WRITE_APEX_TRIGGER, handleWriteApexTrigger, WriteApexTriggerArgs } from "./tools/writeApexTrigger.js";
 import { EXECUTE_ANONYMOUS, handleExecuteAnonymous, ExecuteAnonymousArgs } from "./tools/executeAnonymous.js";
 import { MANAGE_DEBUG_LOGS, handleManageDebugLogs, ManageDebugLogsArgs } from "./tools/manageDebugLogs.js";
+import { LIST_ANALYTICS, handleListAnalytics, ListAnalyticsArgs } from "./tools/listAnalytics.js";
+import { DESCRIBE_ANALYTICS, handleDescribeAnalytics, DescribeAnalyticsArgs } from "./tools/describeAnalytics.js";
+import { RUN_ANALYTICS, handleRunAnalytics, RunAnalyticsArgs } from "./tools/runAnalytics.js";
+import { REFRESH_DASHBOARD, handleRefreshDashboard, RefreshDashboardArgs } from "./tools/refreshDashboard.js";
+import { REST_API, handleRestApi, RestApiArgs } from "./tools/restApi.js";
 
-// Load environment variables (using dotenv 16.x which has no stdout tips)
+// Load environment variables — quiet: true suppresses dotenv 17.x stderr logging
 // MCP servers require stdout to contain ONLY JSON-RPC messages
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const server = new Server(
   {
@@ -58,7 +63,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     READ_APEX_TRIGGER,
     WRITE_APEX_TRIGGER,
     EXECUTE_ANONYMOUS,
-    MANAGE_DEBUG_LOGS
+    MANAGE_DEBUG_LOGS,
+    LIST_ANALYTICS,
+    DESCRIBE_ANALYTICS,
+    RUN_ANALYTICS,
+    REFRESH_DASHBOARD,
+    REST_API
   ],
 }));
 
@@ -71,9 +81,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     switch (name) {
       case "salesforce_search_objects": {
-        const { searchPattern } = args as { searchPattern: string };
-        if (!searchPattern) throw new Error('searchPattern is required');
-        return await handleSearchObjects(conn, searchPattern);
+        const searchObjArgs = args as Record<string, unknown>;
+        if (!searchObjArgs.searchPattern) throw new Error('searchPattern is required');
+        const validatedArgs: SearchObjectsArgs = {
+          searchPattern: searchObjArgs.searchPattern as string,
+          limit: searchObjArgs.limit as number | undefined,
+          offset: searchObjArgs.offset as number | undefined,
+        };
+        return await handleSearchObjects(conn, validatedArgs);
       }
 
       case "salesforce_describe_object": {
@@ -93,7 +108,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           fields: queryArgs.fields as string[],
           whereClause: queryArgs.whereClause as string | undefined,
           orderBy: queryArgs.orderBy as string | undefined,
-          limit: queryArgs.limit as number | undefined
+          limit: queryArgs.limit as number | undefined,
+          offset: queryArgs.offset as number | undefined
         };
         return await handleQueryRecords(conn, validatedArgs);
       }
@@ -231,7 +247,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const validatedArgs: ReadApexArgs = {
           className: apexArgs.className as string | undefined,
           namePattern: apexArgs.namePattern as string | undefined,
-          includeMetadata: apexArgs.includeMetadata as boolean | undefined
+          includeMetadata: apexArgs.includeMetadata as boolean | undefined,
+          limit: apexArgs.limit as number | undefined,
+          offset: apexArgs.offset as number | undefined
         };
 
         return await handleReadApex(conn, validatedArgs);
@@ -261,7 +279,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const validatedArgs: ReadApexTriggerArgs = {
           triggerName: triggerArgs.triggerName as string | undefined,
           namePattern: triggerArgs.namePattern as string | undefined,
-          includeMetadata: triggerArgs.includeMetadata as boolean | undefined
+          includeMetadata: triggerArgs.includeMetadata as boolean | undefined,
+          limit: triggerArgs.limit as number | undefined,
+          offset: triggerArgs.offset as number | undefined
         };
 
         return await handleReadApexTrigger(conn, validatedArgs);
@@ -314,10 +334,80 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           expirationTime: debugLogsArgs.expirationTime as number | undefined,
           limit: debugLogsArgs.limit as number | undefined,
           logId: debugLogsArgs.logId as string | undefined,
-          includeBody: debugLogsArgs.includeBody as boolean | undefined
+          includeBody: debugLogsArgs.includeBody as boolean | undefined,
+          offset: debugLogsArgs.offset as number | undefined
         };
 
         return await handleManageDebugLogs(conn, validatedArgs);
+      }
+
+      case "salesforce_list_analytics": {
+        const listAnalyticsArgs = args as Record<string, unknown>;
+        if (!listAnalyticsArgs.type) {
+          throw new Error('type is required');
+        }
+        const validatedArgs: ListAnalyticsArgs = {
+          type: listAnalyticsArgs.type as 'report' | 'dashboard',
+          searchTerm: listAnalyticsArgs.searchTerm as string | undefined,
+        };
+        return await handleListAnalytics(conn, validatedArgs);
+      }
+
+      case "salesforce_describe_analytics": {
+        const descAnalyticsArgs = args as Record<string, unknown>;
+        if (!descAnalyticsArgs.type || !descAnalyticsArgs.resourceId) {
+          throw new Error('type and resourceId are required');
+        }
+        const validatedArgs: DescribeAnalyticsArgs = {
+          type: descAnalyticsArgs.type as 'report' | 'dashboard',
+          resourceId: descAnalyticsArgs.resourceId as string,
+        };
+        return await handleDescribeAnalytics(conn, validatedArgs);
+      }
+
+      case "salesforce_run_analytics": {
+        const runAnalyticsArgs = args as Record<string, unknown>;
+        if (!runAnalyticsArgs.type || !runAnalyticsArgs.resourceId) {
+          throw new Error('type and resourceId are required');
+        }
+        const validatedArgs: RunAnalyticsArgs = {
+          type: runAnalyticsArgs.type as 'report' | 'dashboard',
+          resourceId: runAnalyticsArgs.resourceId as string,
+          includeDetails: runAnalyticsArgs.includeDetails as boolean | undefined,
+          filters: runAnalyticsArgs.filters as RunAnalyticsArgs['filters'],
+          booleanFilter: runAnalyticsArgs.booleanFilter as string | undefined,
+          standardDateFilter: runAnalyticsArgs.standardDateFilter as RunAnalyticsArgs['standardDateFilter'],
+          topRows: runAnalyticsArgs.topRows as RunAnalyticsArgs['topRows'],
+        };
+        return await handleRunAnalytics(conn, validatedArgs);
+      }
+
+      case "salesforce_refresh_dashboard": {
+        const refreshArgs = args as Record<string, unknown>;
+        if (!refreshArgs.operation || !refreshArgs.dashboardId) {
+          throw new Error('operation and dashboardId are required');
+        }
+        const validatedArgs: RefreshDashboardArgs = {
+          operation: refreshArgs.operation as 'refresh' | 'status',
+          dashboardId: refreshArgs.dashboardId as string,
+        };
+        return await handleRefreshDashboard(conn, validatedArgs);
+      }
+
+      case "salesforce_rest_api": {
+        const restArgs = args as Record<string, unknown>;
+        if (!restArgs.method || !restArgs.endpoint) {
+          throw new Error('method and endpoint are required for REST API calls');
+        }
+        const validatedArgs: RestApiArgs = {
+          method: restArgs.method as "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
+          endpoint: restArgs.endpoint as string,
+          body: restArgs.body as Record<string, any> | undefined,
+          queryParameters: restArgs.queryParameters as Record<string, string> | undefined,
+          apiVersion: restArgs.apiVersion as string | undefined,
+          rawPath: restArgs.rawPath as boolean | undefined
+        };
+        return await handleRestApi(conn, validatedArgs);
       }
 
       default:

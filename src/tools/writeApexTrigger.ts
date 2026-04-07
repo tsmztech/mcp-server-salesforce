@@ -1,4 +1,5 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { escapeSoqlValue, escapeRegExpInput, validateIdentifier } from "../utils/sanitize.js";
 
 export const WRITE_APEX_TRIGGER: Tool = {
   name: "salesforce_write_apex_trigger",
@@ -79,13 +80,18 @@ export async function handleWriteApexTrigger(conn: any, args: WriteApexTriggerAr
     if (!args.triggerName) {
       throw new Error('triggerName is required');
     }
-    
+
+    const triggerNameValidation = validateIdentifier(args.triggerName);
+    if (!triggerNameValidation.valid) {
+      return { content: [{ type: "text", text: triggerNameValidation.error! }], isError: true };
+    }
+
     if (!args.body) {
       throw new Error('body is required');
     }
-    
+
     // Check if the trigger name in the body matches the provided triggerName
-    const triggerNameRegex = new RegExp(`\\btrigger\\s+${args.triggerName}\\b`);
+    const triggerNameRegex = new RegExp(`\\btrigger\\s+${escapeRegExpInput(args.triggerName)}\\b`);
     if (!triggerNameRegex.test(args.body)) {
       throw new Error(`The trigger name in the body must match the provided triggerName: ${args.triggerName}`);
     }
@@ -98,16 +104,21 @@ export async function handleWriteApexTrigger(conn: any, args: WriteApexTriggerAr
       if (!args.objectName) {
         throw new Error('objectName is required for creating a new trigger');
       }
-      
+
+      const objNameValidation = validateIdentifier(args.objectName);
+      if (!objNameValidation.valid) {
+        return { content: [{ type: "text", text: objNameValidation.error! }], isError: true };
+      }
+
       // Check if the object name in the body matches the provided objectName
-      const objectNameRegex = new RegExp(`\\bon\\s+${args.objectName}\\b`);
+      const objectNameRegex = new RegExp(`\\bon\\s+${escapeRegExpInput(args.objectName)}\\b`);
       if (!objectNameRegex.test(args.body)) {
         throw new Error(`The object name in the body must match the provided objectName: ${args.objectName}`);
       }
       
       // Check if trigger already exists
       const existingTrigger = await conn.query(`
-        SELECT Id FROM ApexTrigger WHERE Name = '${args.triggerName}'
+        SELECT Id FROM ApexTrigger WHERE Name = '${escapeSoqlValue(args.triggerName)}'
       `);
       
       if (existingTrigger.records.length > 0) {
@@ -144,7 +155,7 @@ export async function handleWriteApexTrigger(conn: any, args: WriteApexTriggerAr
       
       // Find the existing trigger
       const existingTrigger = await conn.query(`
-        SELECT Id, TableEnumOrId FROM ApexTrigger WHERE Name = '${args.triggerName}'
+        SELECT Id, TableEnumOrId FROM ApexTrigger WHERE Name = '${escapeSoqlValue(args.triggerName)}'
       `);
       
       if (existingTrigger.records.length === 0) {
@@ -155,7 +166,7 @@ export async function handleWriteApexTrigger(conn: any, args: WriteApexTriggerAr
       const objectName = existingTrigger.records[0].TableEnumOrId;
       
       // Check if the object name in the body matches the existing object
-      const objectNameRegex = new RegExp(`\\bon\\s+${objectName}\\b`);
+      const objectNameRegex = new RegExp(`\\bon\\s+${escapeRegExpInput(objectName)}\\b`);
       if (!objectNameRegex.test(args.body)) {
         throw new Error(`The object name in the body must match the existing object: ${objectName}`);
       }

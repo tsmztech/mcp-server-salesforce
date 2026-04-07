@@ -1,5 +1,6 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { Connection } from "jsforce";
+import { logApexExecution } from "../utils/logging.js";
 
 export const EXECUTE_ANONYMOUS: Tool = {
   name: "salesforce_execute_anonymous",
@@ -65,8 +66,15 @@ export async function handleExecuteAnonymous(conn: any, args: ExecuteAnonymousAr
     if (!args.apexCode || args.apexCode.trim() === '') {
       throw new Error('apexCode is required and cannot be empty');
     }
-    
-    console.error(`Executing anonymous Apex code`);
+
+    if (args.apexCode.length > 100000) {
+      return {
+        content: [{ type: "text", text: "Apex code exceeds maximum allowed length of 100,000 characters." }],
+        isError: true,
+      };
+    }
+
+    logApexExecution(args.apexCode);
     
     // Set default log level if not provided
     const logLevel = args.logLevel || 'DEBUG';
@@ -126,11 +134,13 @@ export async function handleExecuteAnonymous(conn: any, args: ExecuteAnonymousAr
       }
     }
     
+    const hasError = !result.compiled || !result.success;
     return {
-      content: [{ 
-        type: "text", 
+      content: [{
+        type: "text",
         text: responseText
-      }]
+      }],
+      isError: hasError,
     };
   } catch (error) {
     console.error('Error executing anonymous Apex:', error);

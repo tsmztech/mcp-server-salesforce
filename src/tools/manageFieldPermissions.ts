@@ -1,4 +1,5 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { escapeSoqlValue, validateIdentifier } from "../utils/sanitize.js";
 
 export const MANAGE_FIELD_PERMISSIONS: Tool = {
   name: "salesforce_manage_field_permissions",
@@ -61,6 +62,15 @@ export async function handleManageFieldPermissions(conn: any, args: ManageFieldP
   const { operation, objectName, fieldName, readable = true, editable = true } = args;
   let { profileNames } = args;
 
+  const objValidation = validateIdentifier(objectName);
+  if (!objValidation.valid) {
+    return { content: [{ type: "text", text: objValidation.error! }], isError: true };
+  }
+  const fieldValidation = validateIdentifier(fieldName);
+  if (!fieldValidation.valid) {
+    return { content: [{ type: "text", text: fieldValidation.error! }], isError: true };
+  }
+
   try {
     // Ensure field name has __c suffix if it's a custom field and doesn't already have it
     const fieldApiName = fieldName.endsWith('__c') || fieldName.includes('.') ? fieldName : `${fieldName}__c`;
@@ -73,8 +83,8 @@ export async function handleManageFieldPermissions(conn: any, args: ManageFieldP
                Parent.PermissionSetId, Parent.PermissionSet.Name,
                Field, PermissionsRead, PermissionsEdit
         FROM FieldPermissions
-        WHERE SobjectType = '${objectName}'
-        AND Field = '${fullFieldName}'
+        WHERE SobjectType = '${escapeSoqlValue(objectName)}'
+        AND Field = '${escapeSoqlValue(fullFieldName)}'
         ORDER BY Parent.Profile.Name
       `;
 
@@ -122,7 +132,7 @@ export async function handleManageFieldPermissions(conn: any, args: ManageFieldP
     const profileQuery = await conn.query(`
       SELECT Id, Name 
       FROM Profile 
-      WHERE Name IN (${profileNames.map(name => `'${name}'`).join(', ')})
+      WHERE Name IN (${profileNames.map(name => `'${escapeSoqlValue(name)}'`).join(', ')})
     `);
 
     if (profileQuery.records.length === 0) {
@@ -146,12 +156,12 @@ export async function handleManageFieldPermissions(conn: any, args: ManageFieldP
             SELECT Id, PermissionsRead, PermissionsEdit
             FROM FieldPermissions
             WHERE ParentId IN (
-              SELECT Id FROM PermissionSet 
-              WHERE IsOwnedByProfile = true 
-              AND ProfileId = '${profile.Id}'
+              SELECT Id FROM PermissionSet
+              WHERE IsOwnedByProfile = true
+              AND ProfileId = '${escapeSoqlValue(profile.Id)}'
             )
-            AND Field = '${fullFieldName}'
-            AND SobjectType = '${objectName}'
+            AND Field = '${escapeSoqlValue(fullFieldName)}'
+            AND SobjectType = '${escapeSoqlValue(objectName)}'
             LIMIT 1
           `);
 
@@ -162,7 +172,7 @@ export async function handleManageFieldPermissions(conn: any, args: ManageFieldP
               PermissionsRead: readable,
               PermissionsEdit: editable && readable // Edit requires read
             });
-            
+
             results.push({
               profile: profile.Name,
               action: 'updated',
@@ -171,9 +181,9 @@ export async function handleManageFieldPermissions(conn: any, args: ManageFieldP
           } else {
             // Get the PermissionSet ID for this profile
             const permSetQuery = await conn.query(`
-              SELECT Id FROM PermissionSet 
-              WHERE IsOwnedByProfile = true 
-              AND ProfileId = '${profile.Id}'
+              SELECT Id FROM PermissionSet
+              WHERE IsOwnedByProfile = true
+              AND ProfileId = '${escapeSoqlValue(profile.Id)}'
               LIMIT 1
             `);
 
@@ -202,12 +212,12 @@ export async function handleManageFieldPermissions(conn: any, args: ManageFieldP
             SELECT Id
             FROM FieldPermissions
             WHERE ParentId IN (
-              SELECT Id FROM PermissionSet 
-              WHERE IsOwnedByProfile = true 
-              AND ProfileId = '${profile.Id}'
+              SELECT Id FROM PermissionSet
+              WHERE IsOwnedByProfile = true
+              AND ProfileId = '${escapeSoqlValue(profile.Id)}'
             )
-            AND Field = '${fullFieldName}'
-            AND SobjectType = '${objectName}'
+            AND Field = '${escapeSoqlValue(fullFieldName)}'
+            AND SobjectType = '${escapeSoqlValue(objectName)}'
             LIMIT 1
           `);
 

@@ -1,4 +1,6 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { DEFAULT_LIMITS, applyDefaults, formatPaginationFooter } from "../utils/pagination.js";
+import { escapeSoqlValue, wildcardToLikePattern as safeWildcardToLike } from "../utils/sanitize.js";
 
 export const READ_APEX_TRIGGER: Tool = {
   name: "salesforce_read_apex_trigger",
@@ -46,6 +48,14 @@ Notes:
       includeMetadata: {
         type: "boolean",
         description: "Whether to include metadata about the Apex triggers"
+      },
+      limit: {
+        type: "number",
+        description: "Maximum number of triggers to return when listing (default 50)"
+      },
+      offset: {
+        type: "number",
+        description: "Number of triggers to skip for pagination when listing (default 0)"
       }
     }
   }
@@ -55,23 +65,8 @@ export interface ReadApexTriggerArgs {
   triggerName?: string;
   namePattern?: string;
   includeMetadata?: boolean;
-}
-
-/**
- * Converts a wildcard pattern to a SQL LIKE pattern
- * @param pattern Pattern with * and ? wildcards
- * @returns SQL LIKE compatible pattern
- */
-function wildcardToLikePattern(pattern: string): string {
-  if (!pattern.includes('*') && !pattern.includes('?')) {
-    // If no wildcards, wrap with % for substring match
-    return `%${pattern}%`;
-  }
-  
-  // Replace * with % and ? with _ for SQL LIKE
-  let likePattern = pattern.replace(/\*/g, '%').replace(/\?/g, '_');
-  
-  return likePattern;
+  limit?: number;
+  offset?: number;
 }
 
 /**
@@ -91,7 +86,7 @@ export async function handleReadApexTrigger(conn: any, args: ReadApexTriggerArgs
         SELECT Id, Name, Body, ApiVersion, TableEnumOrId, Status, 
                IsValid, LastModifiedDate, LastModifiedById
         FROM ApexTrigger 
-        WHERE Name = '${args.triggerName}'
+        WHERE Name = '${escapeSoqlValue(args.triggerName)}'
       `);
       
       if (result.records.length === 0) {
@@ -135,26 +130,49 @@ export async function handleReadApexTrigger(conn: any, args: ReadApexTriggerArgs
       
       // Add name pattern filter if provided
       if (args.namePattern) {
-        const likePattern = wildcardToLikePattern(args.namePattern);
-        query += ` WHERE Name LIKE '${likePattern}'`;
+        const likePattern = safeWildcardToLike(args.namePattern);
+        query += ` WHERE Name LIKE '${escapeSoqlValue(likePattern)}'`;
       }
       
-      // Order by name
-      query += ` ORDER BY Name`;
-      
+      // Apply pagination
+      const { limit, offset } = applyDefaults(
+        { limit: args.limit, offset: args.offset },
+        DEFAULT_LIMITS.read_apex_trigger
+      );
+      query += ` ORDER BY Name LIMIT ${limit}`;
+      if (offset > 0) query += ` OFFSET ${offset}`;
+
+      // Get total count
+      let countQuery = `SELECT COUNT() FROM ApexTrigger`;
+      if (args.namePattern) {
+        const countLikePattern = safeWildcardToLike(args.namePattern);
+        countQuery += ` WHERE Name LIKE '${escapeSoqlValue(countLikePattern)}'`;
+      }
+      let totalSize: number;
+      try {
+        const countResult = await conn.query(countQuery);
+        totalSize = countResult.totalSize;
+      } catch {
+        totalSize = -1;
+      }
+
       const result = await conn.query(query);
-      
+
       if (result.records.length === 0) {
         return {
-          content: [{ 
-            type: "text", 
-            text: `No Apex triggers found${args.namePattern ? ` matching: ${args.namePattern}` : ''}` 
+          content: [{
+            type: "text",
+            text: `No Apex triggers found${args.namePattern ? ` matching: ${args.namePattern}` : ''}`
           }]
         };
       }
-      
+
+      const effectiveTotal = totalSize >= 0 ? totalSize : result.records.length;
+      const returned = result.records.length;
+      const hasMore = (offset + returned) < effectiveTotal;
+
       // Format the response as a list of triggers
-      let responseText = `# Found ${result.records.length} Apex Triggers\n\n`;
+      let responseText = `# Found ${effectiveTotal} Apex Triggers\n\n`;
       
       if (args.includeMetadata) {
         // Table format with metadata
@@ -171,6 +189,14 @@ export async function handleReadApexTrigger(conn: any, args: ReadApexTriggerArgs
         }
       }
       
+      responseText += formatPaginationFooter({
+        totalSize: effectiveTotal,
+        returned,
+        offset,
+        limit,
+        hasMore,
+      });
+
       return {
         content: [{ type: "text", text: responseText }]
       };

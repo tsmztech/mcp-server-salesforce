@@ -6,12 +6,20 @@ package-lock.json
 dist/
 
 # Environment variables
-.env
+.env*
+!.env.example
 
 # IDE and OS files
 .DS_Store
 .vscode/
 .idea/
+
+# Claude Code
+CLAUDE.md
+.claude/
+
+# Manual test scripts (may contain org-specific data)
+scripts/
 
 # Logs
 *.log

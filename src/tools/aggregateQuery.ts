@@ -1,4 +1,6 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { DEFAULT_LIMITS } from "../utils/pagination.js";
+import { validateIdentifier } from "../utils/sanitize.js";
 
 export const AGGREGATE_QUERY: Tool = {
   name: "salesforce_aggregate_query",
@@ -217,16 +219,22 @@ export async function handleAggregateQuery(conn: any, args: AggregateQueryArgs) 
       };
     }
 
+    const objValidation = validateIdentifier(objectName);
+    if (!objValidation.valid) {
+      return { content: [{ type: "text", text: objValidation.error! }], isError: true };
+    }
+
     // Construct SOQL query
     let soql = `SELECT ${selectFields.join(', ')} FROM ${objectName}`;
     if (whereClause) soql += ` WHERE ${whereClause}`;
     soql += ` GROUP BY ${groupByFields.join(', ')}`;
     if (havingClause) soql += ` HAVING ${havingClause}`;
     if (orderBy) soql += ` ORDER BY ${orderBy}`;
-    if (limit) soql += ` LIMIT ${limit}`;
+    const effectiveLimit = limit ?? DEFAULT_LIMITS.aggregate;
+    soql += ` LIMIT ${effectiveLimit}`;
 
     const result = await conn.query(soql);
-    
+
     // Format the output
     const formattedRecords = result.records.map((record: any, index: number) => {
       const recordStr = selectFields.map(field => {
@@ -234,26 +242,46 @@ export async function handleAggregateQuery(conn: any, args: AggregateQueryArgs) 
         const fieldParts = field.trim().split(/\s+/);
         const displayName = fieldParts.length > 1 ? fieldParts[fieldParts.length - 1] : baseField;
         
-        // Handle nested fields in results
+        // Handle nested fields in results (e.g., Account.Industry in GROUP BY)
         if (baseField.includes('.')) {
+          // Strategy 1: Walk nested object (e.g., record.Account.Industry)
           const parts = baseField.split('.');
-          let value = record;
+          let value: any = record;
           for (const part of parts) {
             value = value?.[part];
           }
+          // Strategy 2: Flattened key (jsforce sometimes returns flat keys)
+          if (value === null || value === undefined) {
+            value = record[baseField];
+          }
+          // Strategy 3: Alias/display name
+          if (value === null || value === undefined) {
+            value = record[displayName];
+          }
+          // Strategy 4: Salesforce expr aliases (expr0, expr1, etc.)
+          if (value === null || value === undefined) {
+            const fieldIndex = selectFields.indexOf(field);
+            value = record[`expr${fieldIndex}`];
+          }
           return `    ${displayName}: ${value !== null && value !== undefined ? value : 'null'}`;
         }
-        
-        const value = record[baseField] || record[displayName];
+
+        const value = record[baseField] ?? record[displayName];
         return `    ${displayName}: ${value !== null && value !== undefined ? value : 'null'}`;
       }).join('\n');
       return `Group ${index + 1}:\n${recordStr}`;
     }).join('\n\n');
 
+    const totalSize = result.totalSize ?? result.records.length;
+    let text = `Aggregate query returned ${result.records.length} of ${totalSize} grouped results:\n\n${formattedRecords}`;
+    if (result.records.length < totalSize) {
+      text += `\n\nNote: Results are truncated (${result.records.length} of ${totalSize}). Narrow with WHERE/HAVING to see different slices (OFFSET is not supported with GROUP BY in Salesforce).`;
+    }
+
     return {
       content: [{
         type: "text",
-        text: `Aggregate query returned ${result.records.length} grouped results:\n\n${formattedRecords}`
+        text,
       }],
       isError: false,
     };

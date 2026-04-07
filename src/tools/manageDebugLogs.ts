@@ -1,5 +1,7 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { Connection } from "jsforce";
+import { formatPaginationFooter } from "../utils/pagination.js";
+import { escapeSoqlValue } from "../utils/sanitize.js";
 
 export const MANAGE_DEBUG_LOGS: Tool = {
   name: "salesforce_manage_debug_logs",
@@ -78,6 +80,10 @@ Notes:
       includeBody: {
         type: "boolean",
         description: "Whether to include the full log content (optional, defaults to false)"
+      },
+      offset: {
+        type: "number",
+        description: "Number of logs to skip for pagination (retrieve operation only, default 0)"
       }
     },
     required: ["operation", "username"]
@@ -92,6 +98,7 @@ export interface ManageDebugLogsArgs {
   limit?: number;
   logId?: string;
   includeBody?: boolean;
+  offset?: number;
 }
 
 /**
@@ -115,28 +122,28 @@ export async function handleManageDebugLogs(conn: any, args: ManageDebugLogsArgs
     if (isLikelyUsername) {
       // Query by username
       userQuery = await conn.query(`
-        SELECT Id, Username, Name, IsActive 
-        FROM User 
-        WHERE Username = '${args.username}'
+        SELECT Id, Username, Name, IsActive
+        FROM User
+        WHERE Username = '${escapeSoqlValue(args.username)}'
       `);
     } else {
       // Query by full name
       userQuery = await conn.query(`
-        SELECT Id, Username, Name, IsActive 
-        FROM User 
-        WHERE Name LIKE '%${args.username}%'
+        SELECT Id, Username, Name, IsActive
+        FROM User
+        WHERE Name LIKE '%${escapeSoqlValue(args.username)}%'
         ORDER BY LastModifiedDate DESC
         LIMIT 5
       `);
     }
-    
+
     if (userQuery.records.length === 0) {
       // If no results with the initial query, try a more flexible search
       userQuery = await conn.query(`
-        SELECT Id, Username, Name, IsActive 
-        FROM User 
-        WHERE Name LIKE '%${args.username}%' 
-        OR Username LIKE '%${args.username}%'
+        SELECT Id, Username, Name, IsActive
+        FROM User
+        WHERE Name LIKE '%${escapeSoqlValue(args.username)}%'
+        OR Username LIKE '%${escapeSoqlValue(args.username)}%'
         ORDER BY LastModifiedDate DESC
         LIMIT 5
       `);
@@ -198,8 +205,8 @@ export async function handleManageDebugLogs(conn: any, args: ManageDebugLogsArgs
         
         // Check if a trace flag already exists for this user
         const existingTraceFlag = await conn.tooling.query(`
-          SELECT Id, DebugLevelId FROM TraceFlag 
-          WHERE TracedEntityId = '${user.Id}' 
+          SELECT Id, DebugLevelId FROM TraceFlag
+          WHERE TracedEntityId = '${escapeSoqlValue(user.Id)}'
           AND ExpirationDate > ${new Date().toISOString()}
         `);
         
@@ -267,7 +274,7 @@ export async function handleManageDebugLogs(conn: any, args: ManageDebugLogsArgs
       case 'disable': {
         // Find all active trace flags for this user
         const traceFlags = await conn.tooling.query(`
-          SELECT Id FROM TraceFlag WHERE TracedEntityId = '${user.Id}' AND ExpirationDate > ${new Date().toISOString()}
+          SELECT Id FROM TraceFlag WHERE TracedEntityId = '${escapeSoqlValue(user.Id)}' AND ExpirationDate > ${new Date().toISOString()}
         `);
         
         if (traceFlags.records.length === 0) {
@@ -337,7 +344,7 @@ export async function handleManageDebugLogs(conn: any, args: ManageDebugLogsArgs
             const logQuery = await conn.tooling.query(`
               SELECT Id, LogUserId, Operation, Application, Status, LogLength, LastModifiedDate, Request
               FROM ApexLog 
-              WHERE Id = '${args.logId}'
+              WHERE Id = '${escapeSoqlValue(args.logId)}'
             `);
             
             if (logQuery.records.length === 0) {
@@ -416,13 +423,24 @@ export async function handleManageDebugLogs(conn: any, args: ManageDebugLogsArgs
         }
         
         // Query for logs
-        const logs = await conn.tooling.query(`
+        const logOffset = args.offset ?? 0;
+        let logSoql = `
           SELECT Id, LogUserId, Operation, Application, Status, LogLength, LastModifiedDate, Request
-          FROM ApexLog 
-          WHERE LogUserId = '${user.Id}'
-          ORDER BY LastModifiedDate DESC 
-          LIMIT ${limit}
-        `);
+          FROM ApexLog
+          WHERE LogUserId = '${escapeSoqlValue(user.Id)}'
+          ORDER BY LastModifiedDate DESC
+          LIMIT ${limit}`;
+        if (logOffset > 0) logSoql += ` OFFSET ${logOffset}`;
+        const logs = await conn.tooling.query(logSoql);
+
+        // Get total count for pagination
+        let totalLogs: number;
+        try {
+          const countResult = await conn.tooling.query(`SELECT COUNT() FROM ApexLog WHERE LogUserId = '${escapeSoqlValue(user.Id)}'`);
+          totalLogs = countResult.totalSize;
+        } catch {
+          totalLogs = logs.records.length;
+        }
         
         if (logs.records.length === 0) {
           return {
@@ -434,7 +452,9 @@ export async function handleManageDebugLogs(conn: any, args: ManageDebugLogsArgs
         }
         
         // Format log information
-        let responseText = `Found ${logs.records.length} debug logs for user '${args.username}':\n\n`;
+        const returned = logs.records.length;
+        const hasMore = (logOffset + returned) < totalLogs;
+        let responseText = `Found ${totalLogs} debug logs for user '${args.username}':\n\n`;
         
         for (let i = 0; i < logs.records.length; i++) {
           const log = logs.records[i];
@@ -456,10 +476,18 @@ export async function handleManageDebugLogs(conn: any, args: ManageDebugLogsArgs
         responseText += `  "logId": "<LOG_ID>",\n`;
         responseText += `  "includeBody": true\n`;
         responseText += `}\n\`\`\`\n`;
-        
+
+        responseText += formatPaginationFooter({
+          totalSize: totalLogs,
+          returned,
+          offset: logOffset,
+          limit,
+          hasMore,
+        });
+
         return {
-          content: [{ 
-            type: "text", 
+          content: [{
+            type: "text",
             text: responseText
           }]
         };

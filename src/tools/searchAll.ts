@@ -1,4 +1,5 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { escapeSoslSearchTerm, validateIdentifier } from "../utils/sanitize.js";
 
 export const SEARCH_ALL: Tool = {
   name: "salesforce_search_all",
@@ -176,6 +177,14 @@ export async function handleSearchAll(conn: any, args: SearchAllArgs) {
       throw new Error('Search term cannot be empty');
     }
 
+    // Validate object names
+    for (const obj of objects) {
+      const objValidation = validateIdentifier(obj.name);
+      if (!objValidation.valid) {
+        return { content: [{ type: "text", text: objValidation.error! }], isError: true };
+      }
+    }
+
     // Construct the RETURNING clause with object-specific clauses
     const returningClause = objects
       .map(obj => {
@@ -203,7 +212,7 @@ export async function handleSearchAll(conn: any, args: SearchAllArgs) {
       ` RETURNING ${accessFlags.join(',')}` : '';
 
     // Construct complete SOSL query
-    const soslQuery = `FIND {${searchTerm}} IN ${searchIn} 
+    const soslQuery = `FIND {${escapeSoslSearchTerm(searchTerm)}} IN ${searchIn}
       ${withClausesStr}
       RETURNING ${returningClause}
       ${accessClause}`.trim();

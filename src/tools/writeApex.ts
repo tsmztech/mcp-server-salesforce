@@ -1,5 +1,6 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { Connection } from "jsforce";
+import { escapeSoqlValue, escapeRegExpInput, validateIdentifier } from "../utils/sanitize.js";
 
 export const WRITE_APEX: Tool = {
   name: "salesforce_write_apex",
@@ -73,13 +74,18 @@ export async function handleWriteApex(conn: any, args: WriteApexArgs) {
     if (!args.className) {
       throw new Error('className is required');
     }
-    
+
+    const classNameValidation = validateIdentifier(args.className);
+    if (!classNameValidation.valid) {
+      return { content: [{ type: "text", text: classNameValidation.error! }], isError: true };
+    }
+
     if (!args.body) {
       throw new Error('body is required');
     }
-    
+
     // Check if the class name in the body matches the provided className
-    const classNameRegex = new RegExp(`\\b(class|interface|enum)\\s+${args.className}\\b`);
+    const classNameRegex = new RegExp(`\\b(class|interface|enum)\\s+${escapeRegExpInput(args.className)}\\b`);
     if (!classNameRegex.test(args.body)) {
       throw new Error(`The class name in the body must match the provided className: ${args.className}`);
     }
@@ -90,7 +96,7 @@ export async function handleWriteApex(conn: any, args: WriteApexArgs) {
       
       // Check if class already exists
       const existingClass = await conn.query(`
-        SELECT Id FROM ApexClass WHERE Name = '${args.className}'
+        SELECT Id FROM ApexClass WHERE Name = '${escapeSoqlValue(args.className)}'
       `);
       
       if (existingClass.records.length > 0) {
@@ -125,7 +131,7 @@ export async function handleWriteApex(conn: any, args: WriteApexArgs) {
       
       // Find the existing class
       const existingClass = await conn.query(`
-        SELECT Id FROM ApexClass WHERE Name = '${args.className}'
+        SELECT Id FROM ApexClass WHERE Name = '${escapeSoqlValue(args.className)}'
       `);
       
       if (existingClass.records.length === 0) {

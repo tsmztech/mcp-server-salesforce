@@ -1,5 +1,6 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { FieldMetadataInfo } from "../types/metadata";
+import { escapeSoqlValue, validateIdentifier } from "../utils/sanitize.js";
 
 export const MANAGE_FIELD: Tool = {
   name: "salesforce_manage_field",
@@ -149,7 +150,7 @@ async function grantFieldPermissions(conn: any, objectName: string, fieldName: s
     const profileQuery = await conn.query(`
       SELECT Id, Name 
       FROM Profile 
-      WHERE Name IN (${profileNames.map(name => `'${name}'`).join(', ')})
+      WHERE Name IN (${profileNames.map(name => `'${escapeSoqlValue(name)}'`).join(', ')})
     `);
 
     if (profileQuery.records.length === 0) {
@@ -234,6 +235,15 @@ async function grantFieldPermissions(conn: any, objectName: string, fieldName: s
 
 export async function handleManageField(conn: any, args: ManageFieldArgs) {
   const { operation, objectName, fieldName, type, grantAccessTo, ...fieldProps } = args;
+
+  const objValidation = validateIdentifier(objectName);
+  if (!objValidation.valid) {
+    return { content: [{ type: "text", text: objValidation.error! }], isError: true };
+  }
+  const fieldValidation = validateIdentifier(fieldName);
+  if (!fieldValidation.valid) {
+    return { content: [{ type: "text", text: fieldValidation.error! }], isError: true };
+  }
 
   try {
     if (operation === 'create') {
