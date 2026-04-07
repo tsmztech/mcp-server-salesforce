@@ -1,4 +1,5 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { DEFAULT_LIMITS, applyDefaults, formatPaginationFooter } from "../utils/pagination.js";
 
 export const READ_APEX_TRIGGER: Tool = {
   name: "salesforce_read_apex_trigger",
@@ -46,6 +47,14 @@ Notes:
       includeMetadata: {
         type: "boolean",
         description: "Whether to include metadata about the Apex triggers"
+      },
+      limit: {
+        type: "number",
+        description: "Maximum number of triggers to return when listing (default 50)"
+      },
+      offset: {
+        type: "number",
+        description: "Number of triggers to skip for pagination when listing (default 0)"
       }
     }
   }
@@ -55,6 +64,8 @@ export interface ReadApexTriggerArgs {
   triggerName?: string;
   namePattern?: string;
   includeMetadata?: boolean;
+  limit?: number;
+  offset?: number;
 }
 
 /**
@@ -139,22 +150,45 @@ export async function handleReadApexTrigger(conn: any, args: ReadApexTriggerArgs
         query += ` WHERE Name LIKE '${likePattern}'`;
       }
       
-      // Order by name
-      query += ` ORDER BY Name`;
-      
+      // Apply pagination
+      const { limit, offset } = applyDefaults(
+        { limit: args.limit, offset: args.offset },
+        DEFAULT_LIMITS.read_apex_trigger
+      );
+      query += ` ORDER BY Name LIMIT ${limit}`;
+      if (offset > 0) query += ` OFFSET ${offset}`;
+
+      // Get total count
+      let countQuery = `SELECT COUNT() FROM ApexTrigger`;
+      if (args.namePattern) {
+        const countLikePattern = wildcardToLikePattern(args.namePattern);
+        countQuery += ` WHERE Name LIKE '${countLikePattern}'`;
+      }
+      let totalSize: number;
+      try {
+        const countResult = await conn.query(countQuery);
+        totalSize = countResult.totalSize;
+      } catch {
+        totalSize = -1;
+      }
+
       const result = await conn.query(query);
-      
+
       if (result.records.length === 0) {
         return {
-          content: [{ 
-            type: "text", 
-            text: `No Apex triggers found${args.namePattern ? ` matching: ${args.namePattern}` : ''}` 
+          content: [{
+            type: "text",
+            text: `No Apex triggers found${args.namePattern ? ` matching: ${args.namePattern}` : ''}`
           }]
         };
       }
-      
+
+      const effectiveTotal = totalSize >= 0 ? totalSize : result.records.length;
+      const returned = result.records.length;
+      const hasMore = (offset + returned) < effectiveTotal;
+
       // Format the response as a list of triggers
-      let responseText = `# Found ${result.records.length} Apex Triggers\n\n`;
+      let responseText = `# Found ${effectiveTotal} Apex Triggers\n\n`;
       
       if (args.includeMetadata) {
         // Table format with metadata
@@ -171,6 +205,14 @@ export async function handleReadApexTrigger(conn: any, args: ReadApexTriggerArgs
         }
       }
       
+      responseText += formatPaginationFooter({
+        totalSize: effectiveTotal,
+        returned,
+        offset,
+        limit,
+        hasMore,
+      });
+
       return {
         content: [{ type: "text", text: responseText }]
       };

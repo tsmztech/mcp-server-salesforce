@@ -1,4 +1,5 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { DEFAULT_LIMITS } from "../utils/pagination.js";
 
 export const AGGREGATE_QUERY: Tool = {
   name: "salesforce_aggregate_query",
@@ -223,10 +224,11 @@ export async function handleAggregateQuery(conn: any, args: AggregateQueryArgs) 
     soql += ` GROUP BY ${groupByFields.join(', ')}`;
     if (havingClause) soql += ` HAVING ${havingClause}`;
     if (orderBy) soql += ` ORDER BY ${orderBy}`;
-    if (limit) soql += ` LIMIT ${limit}`;
+    const effectiveLimit = limit ?? DEFAULT_LIMITS.aggregate;
+    soql += ` LIMIT ${effectiveLimit}`;
 
     const result = await conn.query(soql);
-    
+
     // Format the output
     const formattedRecords = result.records.map((record: any, index: number) => {
       const recordStr = selectFields.map(field => {
@@ -250,10 +252,16 @@ export async function handleAggregateQuery(conn: any, args: AggregateQueryArgs) 
       return `Group ${index + 1}:\n${recordStr}`;
     }).join('\n\n');
 
+    const totalSize = result.totalSize ?? result.records.length;
+    let text = `Aggregate query returned ${result.records.length} of ${totalSize} grouped results:\n\n${formattedRecords}`;
+    if (result.records.length < totalSize) {
+      text += `\n\nNote: Results are truncated (${result.records.length} of ${totalSize}). Narrow with WHERE/HAVING to see different slices (OFFSET is not supported with GROUP BY in Salesforce).`;
+    }
+
     return {
       content: [{
         type: "text",
-        text: `Aggregate query returned ${result.records.length} grouped results:\n\n${formattedRecords}`
+        text,
       }],
       isError: false,
     };

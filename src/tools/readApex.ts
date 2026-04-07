@@ -1,4 +1,5 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { DEFAULT_LIMITS, applyDefaults, formatPaginationFooter } from "../utils/pagination.js";
 
 export const READ_APEX: Tool = {
   name: "salesforce_read_apex",
@@ -46,6 +47,14 @@ Notes:
       includeMetadata: {
         type: "boolean",
         description: "Whether to include metadata about the Apex classes"
+      },
+      limit: {
+        type: "number",
+        description: "Maximum number of classes to return when listing (default 50)"
+      },
+      offset: {
+        type: "number",
+        description: "Number of classes to skip for pagination when listing (default 0)"
       }
     }
   }
@@ -55,6 +64,8 @@ export interface ReadApexArgs {
   className?: string;
   namePattern?: string;
   includeMetadata?: boolean;
+  limit?: number;
+  offset?: number;
 }
 
 /**
@@ -139,22 +150,45 @@ export async function handleReadApex(conn: any, args: ReadApexArgs) {
         query += ` WHERE Name LIKE '${likePattern}'`;
       }
       
-      // Order by name
-      query += ` ORDER BY Name`;
-      
+      // Apply pagination
+      const { limit, offset } = applyDefaults(
+        { limit: args.limit, offset: args.offset },
+        DEFAULT_LIMITS.read_apex
+      );
+      query += ` ORDER BY Name LIMIT ${limit}`;
+      if (offset > 0) query += ` OFFSET ${offset}`;
+
+      // Get total count
+      let countQuery = `SELECT COUNT() FROM ApexClass`;
+      if (args.namePattern) {
+        const countLikePattern = wildcardToLikePattern(args.namePattern);
+        countQuery += ` WHERE Name LIKE '${countLikePattern}'`;
+      }
+      let totalSize: number;
+      try {
+        const countResult = await conn.query(countQuery);
+        totalSize = countResult.totalSize;
+      } catch {
+        totalSize = -1;
+      }
+
       const result = await conn.query(query);
-      
+
       if (result.records.length === 0) {
         return {
-          content: [{ 
-            type: "text", 
-            text: `No Apex classes found${args.namePattern ? ` matching: ${args.namePattern}` : ''}` 
+          content: [{
+            type: "text",
+            text: `No Apex classes found${args.namePattern ? ` matching: ${args.namePattern}` : ''}`
           }]
         };
       }
-      
+
+      const effectiveTotal = totalSize >= 0 ? totalSize : result.records.length;
+      const returned = result.records.length;
+      const hasMore = (offset + returned) < effectiveTotal;
+
       // Format the response as a list of classes
-      let responseText = `# Found ${result.records.length} Apex Classes\n\n`;
+      let responseText = `# Found ${effectiveTotal} Apex Classes\n\n`;
       
       if (args.includeMetadata) {
         // Table format with metadata
@@ -171,6 +205,14 @@ export async function handleReadApex(conn: any, args: ReadApexArgs) {
         }
       }
       
+      responseText += formatPaginationFooter({
+        totalSize: effectiveTotal,
+        returned,
+        offset,
+        limit,
+        hasMore,
+      });
+
       return {
         content: [{ type: "text", text: responseText }]
       };

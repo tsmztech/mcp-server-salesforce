@@ -1,5 +1,6 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { Connection } from "jsforce";
+import { formatPaginationFooter } from "../utils/pagination.js";
 
 export const MANAGE_DEBUG_LOGS: Tool = {
   name: "salesforce_manage_debug_logs",
@@ -78,6 +79,10 @@ Notes:
       includeBody: {
         type: "boolean",
         description: "Whether to include the full log content (optional, defaults to false)"
+      },
+      offset: {
+        type: "number",
+        description: "Number of logs to skip for pagination (retrieve operation only, default 0)"
       }
     },
     required: ["operation", "username"]
@@ -92,6 +97,7 @@ export interface ManageDebugLogsArgs {
   limit?: number;
   logId?: string;
   includeBody?: boolean;
+  offset?: number;
 }
 
 /**
@@ -416,13 +422,24 @@ export async function handleManageDebugLogs(conn: any, args: ManageDebugLogsArgs
         }
         
         // Query for logs
-        const logs = await conn.tooling.query(`
+        const logOffset = args.offset ?? 0;
+        let logSoql = `
           SELECT Id, LogUserId, Operation, Application, Status, LogLength, LastModifiedDate, Request
-          FROM ApexLog 
+          FROM ApexLog
           WHERE LogUserId = '${user.Id}'
-          ORDER BY LastModifiedDate DESC 
-          LIMIT ${limit}
-        `);
+          ORDER BY LastModifiedDate DESC
+          LIMIT ${limit}`;
+        if (logOffset > 0) logSoql += ` OFFSET ${logOffset}`;
+        const logs = await conn.tooling.query(logSoql);
+
+        // Get total count for pagination
+        let totalLogs: number;
+        try {
+          const countResult = await conn.tooling.query(`SELECT COUNT() FROM ApexLog WHERE LogUserId = '${user.Id}'`);
+          totalLogs = countResult.totalSize;
+        } catch {
+          totalLogs = logs.records.length;
+        }
         
         if (logs.records.length === 0) {
           return {
@@ -434,7 +451,9 @@ export async function handleManageDebugLogs(conn: any, args: ManageDebugLogsArgs
         }
         
         // Format log information
-        let responseText = `Found ${logs.records.length} debug logs for user '${args.username}':\n\n`;
+        const returned = logs.records.length;
+        const hasMore = (logOffset + returned) < totalLogs;
+        let responseText = `Found ${totalLogs} debug logs for user '${args.username}':\n\n`;
         
         for (let i = 0; i < logs.records.length; i++) {
           const log = logs.records[i];
@@ -456,10 +475,18 @@ export async function handleManageDebugLogs(conn: any, args: ManageDebugLogsArgs
         responseText += `  "logId": "<LOG_ID>",\n`;
         responseText += `  "includeBody": true\n`;
         responseText += `}\n\`\`\`\n`;
-        
+
+        responseText += formatPaginationFooter({
+          totalSize: totalLogs,
+          returned,
+          offset: logOffset,
+          limit,
+          hasMore,
+        });
+
         return {
-          content: [{ 
-            type: "text", 
+          content: [{
+            type: "text",
             text: responseText
           }]
         };
