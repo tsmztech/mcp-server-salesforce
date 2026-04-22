@@ -24,7 +24,7 @@ import { READ_APEX_TRIGGER, handleReadApexTrigger, ReadApexTriggerArgs } from ".
 import { WRITE_APEX_TRIGGER, handleWriteApexTrigger, WriteApexTriggerArgs } from "./tools/writeApexTrigger.js";
 import { EXECUTE_ANONYMOUS, handleExecuteAnonymous, ExecuteAnonymousArgs } from "./tools/executeAnonymous.js";
 import { MANAGE_DEBUG_LOGS, handleManageDebugLogs, ManageDebugLogsArgs } from "./tools/manageDebugLogs.js";
-import { METADATA_QUERY, handleMetadataQuery } from "./tools/metadata";
+import { METADATA_QUERY, handleMetadataQuery } from "./tools/metadata.js";
 
 // Load environment variables (using dotenv 16.x which has no stdout tips)
 // MCP servers require stdout to contain ONLY JSON-RPC messages
