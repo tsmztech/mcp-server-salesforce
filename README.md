@@ -237,6 +237,25 @@ Add to your `claude_desktop_config.json`:
 
 > **Note**: For OAuth 2.0 Client Credentials Flow, the `SALESFORCE_INSTANCE_URL` must be your exact Salesforce instance URL (e.g., `https://your-domain.my.salesforce.com`). The token endpoint will be constructed as `<instance_url>/services/oauth2/token`.
 
+#### For Direct Access Token Authentication:
+```json
+{
+  "mcpServers": {
+    "salesforce": {
+      "command": "npx",
+      "args": ["-y", "@tsmztech/mcp-server-salesforce"],
+      "env": {
+        "SALESFORCE_CONNECTION_TYPE": "Access_Token",
+        "SALESFORCE_INSTANCE_URL": "https://your-domain.my.salesforce.com",
+        "SALESFORCE_ACCESS_TOKEN": "your_access_token"
+      }
+    }
+  }
+}
+```
+
+> **Note**: Use `Access_Token` when the OAuth access token is provisioned by an external system (an SSO gateway, the SF CLI on another machine, a refresh-token-based proxy, etc.) and only the resulting access token + instance URL are available at runtime. The server skips the OAuth handshake and uses the provided token directly.
+
 ## Example Usage
 
 ### Searching Objects
