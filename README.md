@@ -22,6 +22,10 @@ An MCP (Model Context Protocol) server implementation that integrates Claude wit
 
 ## Installation
 
+### Requirements
+
+- **Node.js 20+**. The server must run under Node — **bun is not supported**: jsforce's HTTP transport hangs under bun, so authentication appears to succeed but every Salesforce API call stalls until the MCP host times out (see [#118](https://github.com/tsmztech/mcp-server-salesforce/issues/118)). Use `npx`/`node` (not `bun x`) in your MCP client configuration.
+
 ### Global Installation (npm)
 
 ```bash
