@@ -338,6 +338,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 async function runServer() {
+  // jsforce's HTTP transport hangs under bun: auth succeeds but every query
+  // stalls until the MCP host times out (#118). Warn loudly on stderr.
+  if (process.versions.bun) {
+    console.error(
+      "WARNING: Running under bun is not supported — Salesforce API calls will hang " +
+      "(jsforce's HTTP transport is incompatible with bun). Run with Node 20+ instead, " +
+      "e.g. npx -y @tsmztech/mcp-server-salesforce"
+    );
+  }
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("Salesforce MCP Server running on stdio");
