@@ -8,6 +8,21 @@ import { promisify } from 'util';
 const execAsync = promisify(exec);
 
 /**
+ * Reads and validates the optional SALESFORCE_API_VERSION environment variable.
+ * jsforce falls back to its internal default when no version is provided, which
+ * can be too old for newer Salesforce objects (e.g. AccountPlan requires 62.0+).
+ * @returns The API version string (e.g. "62.0"), or undefined to use the jsforce default
+ */
+function getApiVersion(): string | undefined {
+  const apiVersion = process.env.SALESFORCE_API_VERSION;
+  if (!apiVersion) return undefined;
+  if (!/^\d+\.\d$/.test(apiVersion)) {
+    throw new Error(`Invalid SALESFORCE_API_VERSION "${apiVersion}". Expected a version like "62.0".`);
+  }
+  return apiVersion;
+}
+
+/**
  * Executes the Salesforce CLI command to get org information
  * @returns Parsed response from sf org display --json command
  */
@@ -148,7 +163,8 @@ export async function createSalesforceConnection(config?: ConnectionConfig) {
       // Create connection with the access token
       const conn = new jsforce.Connection({
         instanceUrl: tokenResponse.instance_url,
-        accessToken: tokenResponse.access_token
+        accessToken: tokenResponse.access_token,
+        version: getApiVersion()
       });
       
       return conn;
@@ -166,6 +182,7 @@ export async function createSalesforceConnection(config?: ConnectionConfig) {
       const conn = new jsforce.Connection({
         instanceUrl,
         accessToken,
+        version: getApiVersion()
       });
 
       return conn;
@@ -179,7 +196,8 @@ export async function createSalesforceConnection(config?: ConnectionConfig) {
       // Create connection with the access token from CLI
       const conn = new jsforce.Connection({
         instanceUrl: orgInfo.result.instanceUrl,
-        accessToken: orgInfo.result.accessToken
+        accessToken: orgInfo.result.accessToken,
+        version: getApiVersion()
       });
       
       console.error(`Connected to Salesforce org: ${orgInfo.result.username} (${orgInfo.result.alias || 'No alias'})`);
@@ -198,7 +216,7 @@ export async function createSalesforceConnection(config?: ConnectionConfig) {
       console.error('Connecting to Salesforce using Username/Password authentication');
       
       // Create connection with login URL
-      const conn = new jsforce.Connection({ loginUrl });
+      const conn = new jsforce.Connection({ loginUrl, version: getApiVersion() });
       
       await conn.login(
         username,
