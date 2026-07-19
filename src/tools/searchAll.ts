@@ -48,7 +48,6 @@ Notes:
         type: "string",
         enum: ["ALL FIELDS", "NAME FIELDS", "EMAIL FIELDS", "PHONE FIELDS", "SIDEBAR FIELDS"],
         description: "Which fields to search in",
-        optional: true
       },
       objects: {
         type: "array",
@@ -67,17 +66,14 @@ Notes:
             where: {
               type: "string",
               description: "WHERE clause for this object",
-              optional: true
             },
             orderBy: {
               type: "string",
               description: "ORDER BY clause for this object",
-              optional: true
             },
             limit: {
               type: "number",
               description: "Maximum number of records to return for this object",
-              optional: true
             }
           },
           required: ["name", "fields"]
@@ -97,29 +93,24 @@ Notes:
             value: {
               type: "string",
               description: "Value for the WITH clause",
-              optional: true
             },
             fields: {
               type: "array",
               items: { type: "string" },
               description: "Fields for SNIPPET clause",
-              optional: true
             }
           },
           required: ["type"]
         },
         description: "Additional WITH clauses for the search",
-        optional: true
       },
       updateable: {
         type: "boolean",
         description: "Return only updateable records",
-        optional: true
       },
       viewable: {
         type: "boolean",
         description: "Return only viewable records",
-        optional: true
       }
     },
     required: ["searchTerm", "objects"]
