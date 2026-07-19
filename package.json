@@ -26,7 +26,7 @@
     "author": "tsmztech",
     "license": "MIT",
     "dependencies": {
-      "@modelcontextprotocol/sdk": "1.22.0",
+      "@modelcontextprotocol/sdk": "1.26.0",
       "dotenv": "16.4.7",
       "jsforce": "^3.10.3"
     },
