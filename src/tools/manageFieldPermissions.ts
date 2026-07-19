@@ -31,17 +31,14 @@ export const MANAGE_FIELD_PERMISSIONS: Tool = {
         type: "array",
         items: { type: "string" },
         description: "Names of profiles to grant/revoke access (e.g., ['System Administrator', 'Sales User'])",
-        optional: true
       },
       readable: {
         type: "boolean",
         description: "Grant/revoke read access (default: true)",
-        optional: true
       },
       editable: {
         type: "boolean",
         description: "Grant/revoke edit access (default: true)",
-        optional: true
       }
     },
     required: ["operation", "objectName", "fieldName"]

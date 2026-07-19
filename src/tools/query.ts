@@ -43,17 +43,14 @@ Note: When using relationship fields:
       whereClause: {
         type: "string",
         description: "WHERE clause, can include conditions on related objects",
-        optional: true
       },
       orderBy: {
         type: "string",
         description: "ORDER BY clause, can include fields from related objects",
-        optional: true
       },
       limit: {
         type: "number",
         description: "Maximum number of records to return",
-        optional: true
       }
     },
     required: ["objectName", "fields"]

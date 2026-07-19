@@ -65,22 +65,18 @@ Important Rules:
       whereClause: {
         type: "string",
         description: "WHERE clause to filter rows BEFORE grouping (cannot contain aggregate functions)",
-        optional: true
       },
       havingClause: {
         type: "string",
         description: "HAVING clause to filter results AFTER grouping (use for aggregate conditions)",
-        optional: true
       },
       orderBy: {
         type: "string",
         description: "ORDER BY clause - can only use grouped fields or aggregate functions",
-        optional: true
       },
       limit: {
         type: "number",
         description: "Maximum number of grouped results to return",
-        optional: true
       }
     },
     required: ["objectName", "selectFields", "groupByFields"]
