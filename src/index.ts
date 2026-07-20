@@ -24,6 +24,10 @@ import { READ_APEX_TRIGGER, handleReadApexTrigger, ReadApexTriggerArgs } from ".
 import { WRITE_APEX_TRIGGER, handleWriteApexTrigger, WriteApexTriggerArgs } from "./tools/writeApexTrigger.js";
 import { EXECUTE_ANONYMOUS, handleExecuteAnonymous, ExecuteAnonymousArgs } from "./tools/executeAnonymous.js";
 import { MANAGE_DEBUG_LOGS, handleManageDebugLogs, ManageDebugLogsArgs } from "./tools/manageDebugLogs.js";
+import { LIST_ANALYTICS, handleListAnalytics, ListAnalyticsArgs } from "./tools/listAnalytics.js";
+import { DESCRIBE_ANALYTICS, handleDescribeAnalytics, DescribeAnalyticsArgs } from "./tools/describeAnalytics.js";
+import { RUN_ANALYTICS, handleRunAnalytics, RunAnalyticsArgs } from "./tools/runAnalytics.js";
+import { REFRESH_DASHBOARD, handleRefreshDashboard, RefreshDashboardArgs } from "./tools/refreshDashboard.js";
 
 // Load environment variables (using dotenv 16.x which has no stdout tips)
 // MCP servers require stdout to contain ONLY JSON-RPC messages
@@ -58,7 +62,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     READ_APEX_TRIGGER,
     WRITE_APEX_TRIGGER,
     EXECUTE_ANONYMOUS,
-    MANAGE_DEBUG_LOGS
+    MANAGE_DEBUG_LOGS,
+    LIST_ANALYTICS,
+    DESCRIBE_ANALYTICS,
+    RUN_ANALYTICS,
+    REFRESH_DASHBOARD
   ],
 }));
 
@@ -318,6 +326,59 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
 
         return await handleManageDebugLogs(conn, validatedArgs);
+      }
+
+      case "salesforce_list_analytics": {
+        const listAnalyticsArgs = args as Record<string, unknown>;
+        if (!listAnalyticsArgs.type) {
+          throw new Error('type is required');
+        }
+        const validatedArgs: ListAnalyticsArgs = {
+          type: listAnalyticsArgs.type as 'report' | 'dashboard',
+          searchTerm: listAnalyticsArgs.searchTerm as string | undefined,
+        };
+        return await handleListAnalytics(conn, validatedArgs);
+      }
+
+      case "salesforce_describe_analytics": {
+        const descAnalyticsArgs = args as Record<string, unknown>;
+        if (!descAnalyticsArgs.type || !descAnalyticsArgs.resourceId) {
+          throw new Error('type and resourceId are required');
+        }
+        const validatedArgs: DescribeAnalyticsArgs = {
+          type: descAnalyticsArgs.type as 'report' | 'dashboard',
+          resourceId: descAnalyticsArgs.resourceId as string,
+        };
+        return await handleDescribeAnalytics(conn, validatedArgs);
+      }
+
+      case "salesforce_run_analytics": {
+        const runAnalyticsArgs = args as Record<string, unknown>;
+        if (!runAnalyticsArgs.type || !runAnalyticsArgs.resourceId) {
+          throw new Error('type and resourceId are required');
+        }
+        const validatedArgs: RunAnalyticsArgs = {
+          type: runAnalyticsArgs.type as 'report' | 'dashboard',
+          resourceId: runAnalyticsArgs.resourceId as string,
+          includeDetails: runAnalyticsArgs.includeDetails as boolean | undefined,
+          filters: runAnalyticsArgs.filters as RunAnalyticsArgs['filters'],
+          booleanFilter: runAnalyticsArgs.booleanFilter as string | undefined,
+          standardDateFilter: runAnalyticsArgs.standardDateFilter as RunAnalyticsArgs['standardDateFilter'],
+          topRows: runAnalyticsArgs.topRows as RunAnalyticsArgs['topRows'],
+        };
+        return await handleRunAnalytics(conn, validatedArgs);
+      }
+
+      case "salesforce_refresh_dashboard": {
+        const refreshArgs = args as Record<string, unknown>;
+        if (!refreshArgs.operation || !refreshArgs.dashboardId) {
+          throw new Error('operation and dashboardId are required');
+        }
+        const validatedArgs: RefreshDashboardArgs = {
+          operation: refreshArgs.operation as 'refresh' | 'status',
+          dashboardId: refreshArgs.dashboardId as string,
+        };
+        return await handleRefreshDashboard(conn, validatedArgs);
       }
 
       default:

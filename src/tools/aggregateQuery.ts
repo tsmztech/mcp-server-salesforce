@@ -230,17 +230,31 @@ export async function handleAggregateQuery(conn: any, args: AggregateQueryArgs) 
         const fieldParts = field.trim().split(/\s+/);
         const displayName = fieldParts.length > 1 ? fieldParts[fieldParts.length - 1] : baseField;
         
-        // Handle nested fields in results
+        // Handle nested fields in results (e.g., Account.Industry in GROUP BY)
         if (baseField.includes('.')) {
+          // Strategy 1: Walk nested object (e.g., record.Account.Industry)
           const parts = baseField.split('.');
-          let value = record;
+          let value: any = record;
           for (const part of parts) {
             value = value?.[part];
           }
+          // Strategy 2: Flattened key (jsforce sometimes returns flat keys)
+          if (value === null || value === undefined) {
+            value = record[baseField];
+          }
+          // Strategy 3: Alias/display name
+          if (value === null || value === undefined) {
+            value = record[displayName];
+          }
+          // Strategy 4: Salesforce expr aliases (expr0, expr1, etc.)
+          if (value === null || value === undefined) {
+            const fieldIndex = selectFields.indexOf(field);
+            value = record[`expr${fieldIndex}`];
+          }
           return `    ${displayName}: ${value !== null && value !== undefined ? value : 'null'}`;
         }
-        
-        const value = record[baseField] || record[displayName];
+
+        const value = record[baseField] ?? record[displayName];
         return `    ${displayName}: ${value !== null && value !== undefined ? value : 'null'}`;
       }).join('\n');
       return `Group ${index + 1}:\n${recordStr}`;
