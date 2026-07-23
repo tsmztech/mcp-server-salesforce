@@ -271,6 +271,110 @@ Add to your `claude_desktop_config.json`:
 
 > **Note**: Use `Access_Token` when the OAuth access token is provisioned by an external system (an SSO gateway, the SF CLI on another machine, a refresh-token-based proxy, etc.) and only the resulting access token + instance URL are available at runtime. The server skips the OAuth handshake and uses the provided token directly.
 
+## Running with Docker
+
+You can run this MCP server inside a Docker container. Because the server communicates over `stdio` (standard input/output), the container is typically executed interactively by an MCP client using `docker run -i`.
+
+### 1. Clone the Repo
+
+```bash
+git clone https://github.com/tsmztech/mcp-server-salesforce.git
+```
+
+### 2. Navigate to directory
+```bash
+cd mcp-server-salesforce
+```
+
+### 3. Build the Image
+
+```bash
+docker build -t mcp-server-salesforce .
+```
+
+### 4. Authentication in Containers
+
+> [!NOTE]
+> The Salesforce CLI (`sf`) web-based OAuth login flow is unavailable inside headless Docker containers.
+>
+> When running containerized, use one of the supported environment-variable based authentication methods:
+>
+> - **Username & Password Authentication**
+>   - `SALESFORCE_CONNECTION_TYPE=User_Password`
+>   - `SALESFORCE_USERNAME`
+>   - `SALESFORCE_PASSWORD`
+>   - `SALESFORCE_TOKEN`
+>
+> - **OAuth 2.0 Client Credentials Flow**
+>   - `SALESFORCE_CONNECTION_TYPE=OAuth_2.0_Client_Credentials`
+>   - `SALESFORCE_CLIENT_ID`
+>   - `SALESFORCE_CLIENT_SECRET`
+>   - `SALESFORCE_INSTANCE_URL`
+>
+> - **Direct Access Token Authentication**
+>   - `SALESFORCE_CONNECTION_TYPE=Access_Token`
+>   - `SALESFORCE_ACCESS_TOKEN`
+>   - `SALESFORCE_INSTANCE_URL`
+
+### 5. MCP Client Configuration
+
+To register the containerized server with an MCP client (such as Claude Desktop), add the following configuration to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "salesforce": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "SALESFORCE_CONNECTION_TYPE=User_Password",
+        "-e",
+        "SALESFORCE_USERNAME=your_username",
+        "-e",
+        "SALESFORCE_PASSWORD=your_password",
+        "-e",
+        "SALESFORCE_TOKEN=your_security_token",
+        "mcp-server-salesforce"
+      ]
+    }
+  }
+}
+```
+
+### 6. Manual Testing
+
+You can test the containerized server directly from your terminal:
+
+```bash
+docker run -i --rm \
+  -e SALESFORCE_CONNECTION_TYPE="User_Password" \
+  -e SALESFORCE_USERNAME="your_username" \
+  -e SALESFORCE_PASSWORD="your_password" \
+  -e SALESFORCE_TOKEN="your_security_token" \
+  mcp-server-salesforce
+```
+
+Once the container is running, you can send an MCP `initialize` JSON-RPC request through `stdin`:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2024-11-05",
+    "capabilities": {},
+    "clientInfo": {
+      "name": "test-client",
+      "version": "1.0.0"
+    }
+  }
+}
+```
+
 ## Example Usage
 
 ### Searching Objects
