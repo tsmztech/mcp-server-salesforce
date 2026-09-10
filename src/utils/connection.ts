@@ -1,5 +1,6 @@
 import jsforce from 'jsforce';
 import { ConnectionType, ConnectionConfig, SalesforceCLIResponse } from '../types/connection.js';
+import { redactSensitiveFields, fingerprint } from './logging.js';
 import https from 'https';
 import querystring from 'querystring';
 import { exec } from 'child_process';
@@ -48,27 +49,34 @@ async function getSalesforceOrgInfo(): Promise<SalesforceCLIResponse> {
     }
 
 
-    // Log always the output for debug
-    console.error('[Salesforce CLI] STDOUT:', stdout);
     if (stderr) {
-      console.warn('[Salesforce CLI] STDERR:', stderr);
+      console.error('[Salesforce CLI] STDERR:', stderr);
     }
-    // Try to parse stdout as JSON
+    // Try to parse stdout as JSON. Parse the raw output; never a redacted copy.
     let response: SalesforceCLIResponse;
     try {
       response = JSON.parse(stdout);
     } catch (parseErr) {
-      throw new Error(`Failed to parse Salesforce CLI JSON output.\nSTDOUT: ${stdout}\nSTDERR: ${stderr}`);
+      throw new Error('Failed to parse Salesforce CLI JSON output. Run `sf org display --json` manually to see the raw output.');
     }
 
-    // If the command failed (non-zero exit code), throw with details
+    // Safe to log only once parsed, and only with credentials redacted.
+    const loggableResult = redactSensitiveFields(response.result ?? {}, ['accessToken', 'refreshToken']);
+    // Fingerprinted rather than blanked so a rotated or stale token is visible across runs;
+    // refreshToken stays blanked, being long-lived with no reason to correlate it.
+    if (typeof response.result?.accessToken === 'string') {
+      loggableResult.accessToken = fingerprint(response.result.accessToken);
+    }
+    console.error('[Salesforce CLI] Org info:', loggableResult);
+
+    // If the command failed (non-zero exit code), throw without echoing output
     if (error || response.status !== 0) {
-      throw new Error(`Salesforce CLI command failed.\nStatus: ${response.status}\nSTDOUT: ${stdout}\nSTDERR: ${stderr}`);
+      throw new Error('Salesforce CLI command failed. Run `sf org display --json` manually to see the error details.');
     }
 
     // Accept any org that returns accessToken and instanceUrl
     if (!response.result || !response.result.accessToken || !response.result.instanceUrl) {
-      throw new Error(`Salesforce CLI did not return accessToken and instanceUrl.\nResult: ${JSON.stringify(response.result)}`);
+      throw new Error('Salesforce CLI did not return accessToken and instanceUrl. Run `sf org display --json` manually to check the org authentication.');
     }
 
     return response;
