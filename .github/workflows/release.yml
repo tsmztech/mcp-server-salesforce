@@ -1,0 +1,203 @@
+# Manual release: build, verify, publish to npm with provenance, create GitHub Release.
+#
+# Flow:
+#   1. Bump "version" in package.json (and claude-desktop/manifest.json) via a normal PR.
+#   2. Run this workflow from the Actions tab against main, typing the same version.
+#   3. Approve the "npm-publish" environment when prompted (unless dry_run).
+#
+# Publishing uses npm trusted publishing (OIDC): no NPM_TOKEN secret is stored anywhere.
+# The package must have this workflow registered as a trusted publisher on npmjs.com.
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release, e.g. 0.0.8. Must equal package.json "version" on the selected ref.'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry run: build, test, pack and npm publish --dry-run only. No publish, tag or release.'
+        required: false
+        type: boolean
+        default: false
+
+# One release at a time. Never cancel a run that may already be publishing.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  verify:
+    name: Build, test and pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      tarball: ${{ steps.pack.outputs.tarball }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Validate requested version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if ! echo "$VERSION" | grep -qE '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+            echo "::error::Version '$VERSION' is not a plain semver X.Y.Z"
+            exit 1
+          fi
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$PKG_VERSION" != "$VERSION" ]; then
+            echo "::error::package.json version is $PKG_VERSION but $VERSION was requested. Bump it via a PR first."
+            exit 1
+          fi
+          MANIFEST_VERSION=$(node -p "require('./claude-desktop/manifest.json').version")
+          if [ "$MANIFEST_VERSION" != "$VERSION" ]; then
+            echo "::warning::claude-desktop/manifest.json version is $MANIFEST_VERSION, not $VERSION. Consider syncing it in the bump PR."
+          fi
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "::error::Tag v$VERSION already exists"
+            exit 1
+          fi
+          PKG_NAME=$(node -p "require('./package.json').name")
+          if npm view "$PKG_NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "::error::$PKG_NAME@$VERSION is already published on npm"
+            exit 1
+          fi
+          echo "Releasing $PKG_NAME@$VERSION from $GITHUB_SHA"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      # MCP stdio servers must emit only JSON-RPC on stdout. Send a real initialize
+      # request and fail if any stdout line is not a JSON object.
+      - name: Check stdout purity
+        run: |
+          set -euo pipefail
+          REQ='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"release-check","version":"0"}}}'
+          printf '%s\n' "$REQ" | timeout 15 node dist/index.js > stdout.txt 2> stderr.txt || true
+          echo "--- stdout ---"; cat stdout.txt
+          echo "--- stderr ---"; cat stderr.txt
+          if [ ! -s stdout.txt ]; then
+            echo "::error::Server produced no stdout for an initialize request"
+            exit 1
+          fi
+          if grep -vE '^\{.*\}$' stdout.txt; then
+            echo "::error::Non JSON-RPC output found on stdout"
+            exit 1
+          fi
+          node -e "require('fs').readFileSync('stdout.txt','utf8').trim().split('\n').forEach(l => JSON.parse(l))"
+          rm -f stdout.txt stderr.txt
+
+      - name: Pack
+        id: pack
+        run: |
+          set -euo pipefail
+          TARBALL=$(npm pack --ignore-scripts 2>/dev/null | tail -n 1)
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+          echo "## Package contents" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tar -tzf "$TARBALL" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish dry run
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: npm publish "$TARBALL" --dry-run --access public
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: npm-tarball
+          path: ${{ steps.pack.outputs.tarball }}
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish to npm and GitHub
+    needs: verify
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The environment gives a required-reviewer gate and the Deployments history.
+    environment:
+      name: npm-publish
+      url: https://www.npmjs.com/package/@tsmztech/mcp-server-salesforce/v/${{ inputs.version }}
+    permissions:
+      contents: write   # create tag and GitHub Release
+      id-token: write   # npm trusted publishing (OIDC) and provenance
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Node 24 ships npm 11+, which trusted publishing requires. The tarball was
+      # already built and tested on Node 20 in the verify job; nothing is rebuilt here.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: npm-tarball
+
+      - name: Publish to npm
+        env:
+          TARBALL: ${{ needs.verify.outputs.tarball }}
+        run: |
+          set -euo pipefail
+          npm --version
+          npm publish "$TARBALL" --provenance --access public
+
+      - name: Create tag and GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          TARBALL: ${{ needs.verify.outputs.tarball }}
+        run: |
+          set -euo pipefail
+          gh release create "v$VERSION" "$TARBALL" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "v$VERSION" \
+            --generate-notes
+
+      - name: Summary
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          {
+            echo "## Released v$VERSION"
+            echo ""
+            echo "- npm: https://www.npmjs.com/package/@tsmztech/mcp-server-salesforce/v/$VERSION"
+            echo "- GitHub: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/v$VERSION"
+            echo "- Commit: $GITHUB_SHA"
+          } >> "$GITHUB_STEP_SUMMARY"
