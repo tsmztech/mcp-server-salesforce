@@ -121,7 +121,7 @@
     "claude_desktop": ">=0.1.0",
     "platforms": ["darwin", "win32", "linux"],
     "runtimes": {
-      "node": ">=16.0.0"
+      "node": ">=22.0.0"
     }
   },
   "user_config": {

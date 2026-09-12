@@ -51,7 +51,7 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '20'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Validate requested version
@@ -67,10 +67,6 @@ jobs:
           if [ "$PKG_VERSION" != "$VERSION" ]; then
             echo "::error::package.json version is $PKG_VERSION but $VERSION was requested. Bump it via a PR first."
             exit 1
-          fi
-          MANIFEST_VERSION=$(node -p "require('./claude-desktop/manifest.json').version")
-          if [ "$MANIFEST_VERSION" != "$VERSION" ]; then
-            echo "::warning::claude-desktop/manifest.json version is $MANIFEST_VERSION, not $VERSION. Consider syncing it in the bump PR."
           fi
           if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
             echo "::error::Tag v$VERSION already exists"
@@ -159,7 +155,7 @@ jobs:
           persist-credentials: false
 
       # Node 24 ships npm 11+, which trusted publishing requires. The tarball was
-      # already built and tested on Node 20 in the verify job; nothing is rebuilt here.
+      # already built and tested on Node 22 in the verify job; nothing is rebuilt here.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'

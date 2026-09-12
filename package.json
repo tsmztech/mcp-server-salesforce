@@ -33,6 +33,9 @@
     ],
     "author": "tsmztech",
     "license": "MIT",
+    "engines": {
+      "node": ">=22"
+    },
     "dependencies": {
       "@modelcontextprotocol/sdk": "1.30.0",
       "dotenv": "16.6.1",
