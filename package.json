@@ -1,6 +1,6 @@
 {
     "name": "@tsmztech/mcp-server-salesforce",
-    "version": "0.0.7",
+    "version": "0.0.8",
     "description": "A Salesforce connector MCP Server.",
     "homepage": "https://github.com/tsmztech/mcp-server-salesforce#readme",
     "repository": {
