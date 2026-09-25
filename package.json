@@ -38,7 +38,7 @@
     },
     "dependencies": {
       "@modelcontextprotocol/sdk": "1.30.0",
-      "dotenv": "16.6.1",
+      "dotenv": "18.0.2",
       "jsforce": "^3.10.3"
     },
     "devDependencies": {
