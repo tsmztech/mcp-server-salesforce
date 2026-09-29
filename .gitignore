@@ -12,6 +12,10 @@ dist/
 .vscode/
 .idea/
 
+# Claude Code
+CLAUDE.md
+.claude/
+
 # Logs
 *.log
 npm-debug.log*
