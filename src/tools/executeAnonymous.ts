@@ -126,11 +126,13 @@ export async function handleExecuteAnonymous(conn: any, args: ExecuteAnonymousAr
       }
     }
     
+    const hasError = !result.compiled || !result.success;
     return {
-      content: [{ 
-        type: "text", 
+      content: [{
+        type: "text",
         text: responseText
-      }]
+      }],
+      isError: hasError,
     };
   } catch (error) {
     console.error('Error executing anonymous Apex:', error);
