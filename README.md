@@ -178,6 +178,7 @@ You can connect to Salesforce using one of three authentication methods:
 1. Install and authenticate Salesforce CLI (`sf`).
 2. Make sure your org is authenticated and accessible via `sf org display --json` in the root of your Salesforce project.
 3. The server will automatically retrieve the access token and instance url using the CLI.
+4. Salesforce CLI 2.136 and later redact the access token in `sf org display`. The server then reads it with `sf org auth show-access-token --json` and renews it when it expires, so you do not need `SF_TEMP_SHOW_SECRETS`.
 
 ### Optional: Salesforce API Version
 
