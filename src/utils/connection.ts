@@ -136,6 +136,10 @@ async function getSalesforceCliAccessToken(): Promise<string> {
 // while repeat calls skip a second CLI round trip.
 const cliAccessTokens = new Map<string, Promise<string>>();
 
+// Set when SALESFORCE_CLI_REUSE_CONNECTION=true: skips the per-call `sf org display`.
+// Its refreshFn still renews the token, but a default-org change needs a server restart.
+let reusedCliConnection: InstanceType<typeof jsforce.Connection> | undefined;
+
 function getCachedCliAccessToken(key: string): Promise<string> {
   let accessToken = cliAccessTokens.get(key);
   if (!accessToken) {
@@ -251,9 +255,14 @@ export async function createSalesforceConnection(config?: ConnectionConfig) {
 
       return conn;
     } else if (connectionType === ConnectionType.Salesforce_CLI) {
+      const shouldReuseConnection = process.env.SALESFORCE_CLI_REUSE_CONNECTION === 'true';
+      if (shouldReuseConnection && reusedCliConnection) {
+        return reusedCliConnection;
+      }
+
       // Salesforce CLI authentication using sf org display
       console.error('Connecting to Salesforce using Salesforce CLI authentication');
-      
+
       // Execute sf org display --json command
       const orgInfo = await getSalesforceOrgInfo();
       const { instanceUrl, username } = orgInfo.result;
@@ -280,6 +289,9 @@ export async function createSalesforceConnection(config?: ConnectionConfig) {
       
       console.error(`Connected to Salesforce org: ${orgInfo.result.username} (${orgInfo.result.alias || 'No alias'})`);
 
+      if (shouldReuseConnection) {
+        reusedCliConnection = conn;
+      }
       return conn;
     } else {
       // Default: Username/Password Flow with Security Token
