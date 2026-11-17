@@ -91,6 +91,62 @@ async function getSalesforceOrgInfo(): Promise<SalesforceCLIResponse> {
 }
 
 /**
+ * Tells a real access token ("<org id>!<session>") from the placeholder that
+ * Salesforce CLI 2.136+ prints in `sf org display` output, e.g.
+ * "[REDACTED] Use 'sf org auth show-access-token' to view".
+ * @param value The accessToken field from `sf org display --json`
+ */
+export function isSalesforceAccessToken(value: unknown): boolean {
+  return typeof value === 'string' && /^00D\w{12,15}!\S+$/.test(value);
+}
+
+/**
+ * Reads the access token with `sf org auth show-access-token --json`, the supported
+ * replacement now that `sf org display` redacts it and the SF_TEMP_SHOW_SECRETS
+ * escape hatch is being removed. Like `sf org display`, it renews an expired token first.
+ * Never logs stdout, which holds the token.
+ */
+async function getSalesforceCliAccessToken(): Promise<string> {
+  const command = 'sf org auth show-access-token --json';
+  console.error(`Executing Salesforce CLI command: ${command}`);
+
+  let stdout = '';
+  try {
+    stdout = (await execAsync(command)).stdout;
+  } catch (err: any) {
+    stdout = err?.stdout || '';
+  }
+
+  let response: { status?: number; result?: { accessToken?: string } } | undefined;
+  try {
+    response = JSON.parse(stdout);
+  } catch {
+    // Reported below without echoing output.
+  }
+
+  const accessToken = response?.status === 0 ? response.result?.accessToken : undefined;
+  if (!isSalesforceAccessToken(accessToken)) {
+    throw new Error('Salesforce CLI did not return an access token. Run `sf org display` to check the org authentication, and update the Salesforce CLI if `sf org auth show-access-token` is missing.');
+  }
+  console.error('[Salesforce CLI] Access token:', fingerprint(accessToken as string));
+  return accessToken as string;
+}
+
+// Keyed by org and user so switching the default org still gets the matching token,
+// while repeat calls skip a second CLI round trip.
+const cliAccessTokens = new Map<string, Promise<string>>();
+
+function getCachedCliAccessToken(key: string): Promise<string> {
+  let accessToken = cliAccessTokens.get(key);
+  if (!accessToken) {
+    accessToken = getSalesforceCliAccessToken();
+    accessToken.catch(() => cliAccessTokens.delete(key));
+    cliAccessTokens.set(key, accessToken);
+  }
+  return accessToken;
+}
+
+/**
  * Creates a Salesforce connection using either username/password or OAuth 2.0 Client Credentials Flow
  * @param config Optional connection configuration
  * @returns Connected jsforce Connection instance
@@ -200,12 +256,26 @@ export async function createSalesforceConnection(config?: ConnectionConfig) {
       
       // Execute sf org display --json command
       const orgInfo = await getSalesforceOrgInfo();
-      
-      // Create connection with the access token from CLI
+      const { instanceUrl, username } = orgInfo.result;
+      const tokenKey = `${instanceUrl}|${username}`;
+
+      // Older CLIs (or SF_TEMP_SHOW_SECRETS) still return the real token here
+      const accessToken = isSalesforceAccessToken(orgInfo.result.accessToken)
+        ? orgInfo.result.accessToken
+        : await getCachedCliAccessToken(tokenKey);
+
       const conn = new jsforce.Connection({
-        instanceUrl: orgInfo.result.instanceUrl,
-        accessToken: orgInfo.result.accessToken,
-        version: getApiVersion()
+        instanceUrl,
+        accessToken,
+        version: getApiVersion(),
+        // jsforce calls this on a 401 or INVALID_SESSION_ID, then retries the request.
+        refreshFn: (_conn: unknown, callback: (error: Error | null, accessToken?: string) => void) => {
+          cliAccessTokens.delete(tokenKey);
+          getCachedCliAccessToken(tokenKey).then(
+            (renewedToken) => callback(null, renewedToken),
+            (error) => callback(error)
+          );
+        }
       });
       
       console.error(`Connected to Salesforce org: ${orgInfo.result.username} (${orgInfo.result.alias || 'No alias'})`);
