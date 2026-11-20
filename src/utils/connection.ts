@@ -24,12 +24,39 @@ function getApiVersion(): string | undefined {
 }
 
 /**
+ * Reads and validates the optional SALESFORCE_TARGET_ORG environment variable.
+ * Without it, `sf org display` resolves whichever org the Salesforce CLI currently
+ * treats as its default target, so the org behind this server can change with no
+ * change to its configuration (for example after `sf org login` or
+ * `sf config set target-org` elsewhere on the machine).
+ *
+ * The value is interpolated into a shell command, so it is restricted to the
+ * characters that appear in Salesforce usernames and aliases. A leading hyphen is
+ * rejected separately so a value cannot be read as another CLI flag.
+ * @returns The alias or username to target, or undefined to use the CLI default
+ */
+function getTargetOrg(): string | undefined {
+  const targetOrg = process.env.SALESFORCE_TARGET_ORG?.trim();
+  if (!targetOrg) return undefined;
+  if (targetOrg.startsWith('-') || !/^[A-Za-z0-9._@+-]+$/.test(targetOrg)) {
+    throw new Error(
+      `Invalid SALESFORCE_TARGET_ORG "${targetOrg}". Expected a Salesforce CLI alias or username, ` +
+      'such as "my-sandbox" or "user@example.com".'
+    );
+  }
+  return targetOrg;
+}
+
+/**
  * Executes the Salesforce CLI command to get org information
  * @returns Parsed response from sf org display --json command
  */
 async function getSalesforceOrgInfo(): Promise<SalesforceCLIResponse> {
   try {
-    const command = 'sf org display --json';
+    const targetOrg = getTargetOrg();
+    const command = targetOrg
+      ? `sf org display --json --target-org ${targetOrg}`
+      : 'sf org display --json';
     const cwdLog = process.cwd();
     console.error(`Executing Salesforce CLI command: ${command} in directory: ${cwdLog}`);
 
@@ -57,7 +84,7 @@ async function getSalesforceOrgInfo(): Promise<SalesforceCLIResponse> {
     try {
       response = JSON.parse(stdout);
     } catch (parseErr) {
-      throw new Error('Failed to parse Salesforce CLI JSON output. Run `sf org display --json` manually to see the raw output.');
+      throw new Error(`Failed to parse Salesforce CLI JSON output. Run \`${command}\` manually to see the raw output.`);
     }
 
     // Safe to log only once parsed, and only with credentials redacted.
@@ -71,12 +98,12 @@ async function getSalesforceOrgInfo(): Promise<SalesforceCLIResponse> {
 
     // If the command failed (non-zero exit code), throw without echoing output
     if (error || response.status !== 0) {
-      throw new Error('Salesforce CLI command failed. Run `sf org display --json` manually to see the error details.');
+      throw new Error(`Salesforce CLI command failed. Run \`${command}\` manually to see the error details.`);
     }
 
     // Accept any org that returns accessToken and instanceUrl
     if (!response.result || !response.result.accessToken || !response.result.instanceUrl) {
-      throw new Error('Salesforce CLI did not return accessToken and instanceUrl. Run `sf org display --json` manually to check the org authentication.');
+      throw new Error(`Salesforce CLI did not return accessToken and instanceUrl. Run \`${command}\` manually to check the org authentication.`);
     }
 
     return response;
