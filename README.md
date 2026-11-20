@@ -179,6 +179,17 @@ You can connect to Salesforce using one of three authentication methods:
 2. Make sure your org is authenticated and accessible via `sf org display --json` in the root of your Salesforce project.
 3. The server will automatically retrieve the access token and instance url using the CLI.
 
+By default this resolves whichever org the CLI currently treats as its default target. That default lives outside this server's configuration, so it can change after an `sf org login` or a `sf config set target-org` elsewhere on the machine, and the server then connects to a different org with no change to `claude_desktop_config.json`. To pin one org, set `SALESFORCE_TARGET_ORG` to a CLI alias or username:
+
+```json
+"env": {
+  "SALESFORCE_CONNECTION_TYPE": "Salesforce_CLI",
+  "SALESFORCE_TARGET_ORG": "my-sandbox"
+}
+```
+
+The server then runs `sf org display --json --target-org my-sandbox`, and fails with a clear error if that org is not authenticated, instead of silently using another one. Leave it unset to keep the previous behaviour of following the CLI default.
+
 ### Optional: Salesforce API Version
 
 By default, the server uses the jsforce library's default Salesforce API version, which may be too old for newer standard objects (for example, `AccountPlan` requires API version 62.0+ and fails with `sObject type 'AccountPlan' is not supported`). Set the `SALESFORCE_API_VERSION` environment variable to pin a specific version with any authentication method:
